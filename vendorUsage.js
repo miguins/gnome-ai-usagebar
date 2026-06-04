@@ -8,6 +8,10 @@ import {
     createUsageState,
 } from './usageState.js';
 import {
+    SecretCredentialError,
+    SecretCredentialStore,
+} from './credentialStore.js';
+import {
     Vendors,
     VendorLabels,
     isVendor,
@@ -17,6 +21,21 @@ const REFRESH_BUFFER_SECONDS = 300;
 const HTTP_TIMEOUT_SECONDS = 10;
 const OWNER_ONLY_FILE_MODE = 0o600;
 const UNSAFE_PERMISSION_MASK = 0o077;
+const CURRENT_SESSION_LABEL = 'Current session (5h)';
+const MONTH_NAMES = Object.freeze([
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+]);
 
 const Anthropic = Object.freeze({
     credentialsRelativePath: '.claude/.credentials.json',
@@ -45,6 +64,8 @@ class UsageFetchError extends Error {
 }
 
 export async function refreshVendorUsage(vendor, {
+    credentialBaseDir = GLib.get_home_dir(),
+    secretCredentialStore = null,
     session = null,
     now = GLib.DateTime.new_now_utc(),
 } = {}) {
@@ -61,9 +82,15 @@ export async function refreshVendorUsage(vendor, {
     try {
         switch (vendor) {
         case Vendors.ANTHROPIC:
-            return await _refreshAnthropicUsage(httpSession, now);
+            return await _refreshAnthropicUsage(httpSession, now, {
+                credentialBaseDir,
+                secretCredentialStore,
+            });
         case Vendors.OPENAI:
-            return await _refreshOpenAIUsage(httpSession, now);
+            return await _refreshOpenAIUsage(httpSession, now, {
+                credentialBaseDir,
+                secretCredentialStore,
+            });
         default:
             return _errorState(
                 UsageStatus.UNSUPPORTED_ACCOUNT,
@@ -96,7 +123,9 @@ export function buildAnthropicUsageDisplay(
 
     const plan = anthropicPlanLabel(oauth);
     const metrics = [
-        _usageWindowMetric('5h session', payload.five_hour, 'utilization', now),
+        _usageWindowMetric(CURRENT_SESSION_LABEL, payload.five_hour, 'utilization', now, {
+            kind: 'current-session',
+        }),
         _usageWindowMetric('Weekly', payload.seven_day, 'utilization', now),
     ];
 
@@ -134,7 +163,9 @@ export function buildOpenAIUsageDisplay(
     const rateLimit = payload.rate_limit ?? {};
     const plan = _openAIPlanLabel(payload.plan_type ?? planHint);
     const metrics = [
-        _usageWindowMetric('5h session', rateLimit.primary_window, 'used_percent', now),
+        _usageWindowMetric(CURRENT_SESSION_LABEL, rateLimit.primary_window, 'used_percent', now, {
+            kind: 'current-session',
+        }),
         _usageWindowMetric('Weekly', rateLimit.secondary_window, 'used_percent', now),
     ];
 
@@ -188,13 +219,15 @@ export function openAIPlanHintFromToken(token) {
     return claims?.['https://api.openai.com/auth']?.chatgpt_plan_type ?? null;
 }
 
-async function _refreshAnthropicUsage(session, now) {
-    const path = _credentialPath(Anthropic.credentialsRelativePath);
-    const document = _readCredentialDocument(
-        path,
-        'Claude credentials are missing. Run `claude` to sign in.',
-        'Claude credentials are unreadable. Run `claude` to sign in again.'
-    );
+async function _refreshAnthropicUsage(session, now, credentialOptions) {
+    const credentials = await _readCredentialSource({
+        vendor: Vendors.ANTHROPIC,
+        relativePath: Anthropic.credentialsRelativePath,
+        missingSummary: 'Claude credentials are missing. Run `claude` to sign in, or add a GNOME Keyring OAuth credential.',
+        unreadableSummary: 'Claude credentials are unreadable. Run `claude` to sign in again.',
+        ...credentialOptions,
+    });
+    const document = credentials.document;
     const oauth = _anthropicOauthFromDocument(document);
 
     if (_needsRefresh(Math.floor(oauth.expiresAt / 1000), now)) {
@@ -233,7 +266,7 @@ async function _refreshAnthropicUsage(session, now) {
         document.claudeAiOauth.accessToken = oauth.accessToken;
         document.claudeAiOauth.refreshToken = oauth.refreshToken;
         document.claudeAiOauth.expiresAt = oauth.expiresAt;
-        _writeCredentialDocument(path, document);
+        await credentials.write(document);
     }
 
     const payload = await _requestJson(session, {
@@ -258,13 +291,15 @@ async function _refreshAnthropicUsage(session, now) {
     });
 }
 
-async function _refreshOpenAIUsage(session, now) {
-    const path = _credentialPath(OpenAI.credentialsRelativePath);
-    const document = _readCredentialDocument(
-        path,
-        'Codex credentials are missing. Run `codex login` to sign in.',
-        'Codex credentials are unreadable. Run `codex login` to sign in again.'
-    );
+async function _refreshOpenAIUsage(session, now, credentialOptions) {
+    const credentials = await _readCredentialSource({
+        vendor: Vendors.OPENAI,
+        relativePath: OpenAI.credentialsRelativePath,
+        missingSummary: 'Codex credentials are missing. Run `codex login` to sign in, or add a GNOME Keyring OAuth credential.',
+        unreadableSummary: 'Codex credentials are unreadable. Run `codex login` to sign in again.',
+        ...credentialOptions,
+    });
+    const document = credentials.document;
     const tokens = _openAITokensFromDocument(document);
     let planHint = openAIPlanHintFromToken(tokens.idToken);
 
@@ -300,7 +335,7 @@ async function _refreshOpenAIUsage(session, now) {
         document.tokens.refresh_token = tokens.refreshToken;
         document.tokens.id_token = tokens.idToken;
         planHint = openAIPlanHintFromToken(tokens.idToken);
-        _writeCredentialDocument(path, document);
+        await credentials.write(document);
     }
 
     const headers = {
@@ -448,6 +483,66 @@ function _loginCommand(vendor) {
     }
 }
 
+async function _readCredentialSource({
+    vendor,
+    relativePath,
+    missingSummary,
+    unreadableSummary,
+    credentialBaseDir,
+    secretCredentialStore,
+}) {
+    const path = _credentialPath(relativePath, credentialBaseDir);
+    if (GLib.file_test(path, GLib.FileTest.EXISTS)) {
+        return {
+            document: _readCredentialDocument(path, missingSummary, unreadableSummary),
+            write: document => _writeCredentialDocument(path, document),
+        };
+    }
+
+    const store = secretCredentialStore ?? new SecretCredentialStore();
+    let document;
+    try {
+        document = await store.lookupVendorCredentialDocument(vendor);
+    } catch (error) {
+        throw _secretCredentialUsageError(vendor, error);
+    }
+
+    if (document === null) {
+        throw new UsageFetchError(
+            UsageStatus.UNAUTHENTICATED,
+            missingSummary
+        );
+    }
+
+    return {
+        document,
+        write: async updatedDocument => {
+            try {
+                await store.storeVendorCredentialDocument(vendor, updatedDocument);
+            } catch (error) {
+                throw new UsageFetchError(
+                    UsageStatus.UNAUTHENTICATED,
+                    'Credential refresh succeeded, but updated credentials could not be saved safely.'
+                );
+            }
+        },
+    };
+}
+
+function _secretCredentialUsageError(vendor, error) {
+    if (error instanceof SecretCredentialError) {
+        return new UsageFetchError(
+            UsageStatus.UNAUTHENTICATED,
+            error.summary
+        );
+    }
+
+    return new UsageFetchError(
+        UsageStatus.UNAUTHENTICATED,
+        `${VendorLabels[vendor]} credentials could not be loaded from GNOME Keyring.`
+    );
+}
+
 function _readCredentialDocument(path, missingSummary, unreadableSummary) {
     if (!GLib.file_test(path, GLib.FileTest.EXISTS)) {
         throw new UsageFetchError(
@@ -527,9 +622,9 @@ function _validateOwnerOnlyFile(path) {
     }
 }
 
-function _credentialPath(relativePath) {
+function _credentialPath(relativePath, baseDir = GLib.get_home_dir()) {
     return GLib.build_filenamev([
-        GLib.get_home_dir(),
+        baseDir,
         ...relativePath.split('/'),
     ]);
 }
@@ -627,7 +722,7 @@ function _displayFromMetrics(plan, metrics) {
     const normalizedMetrics = metrics.filter(metric => metric !== null);
     const summaryMetrics = normalizedMetrics
         .map(metric => {
-            if (metric.label === '5h session')
+            if (metric.kind === 'current-session')
                 return `${metric.value} 5h`;
             if (metric.label === 'Sonnet weekly')
                 return `${metric.value} Sonnet`;
@@ -649,18 +744,23 @@ function _displayFromMetrics(plan, metrics) {
     };
 }
 
-function _usageWindowMetric(label, window, field, now) {
+function _usageWindowMetric(label, window, field, now, {kind = null} = {}) {
     const percent = _percent(window?.[field], {clamp: true});
+    const reset = _windowResetInfo(window, now);
 
     return {
+        kind,
         label,
         value: `${percent}%`,
         percent,
-        detail: _windowResetDetail(window, now),
+        detail: reset?.detail ?? null,
+        resetIn: reset?.resetIn ?? null,
+        resetAt: reset?.resetAt ?? null,
+        resetAtLabel: reset?.resetAtLabel ?? null,
     };
 }
 
-function _windowResetDetail(window, now) {
+function _windowResetInfo(window, now) {
     if (!window || typeof window !== 'object')
         return null;
 
@@ -668,7 +768,16 @@ function _windowResetDetail(window, now) {
     if (resetAt === null)
         return null;
 
-    return `Resets in ${_formatDuration(Math.max(0, resetAt - now.to_unix()))}`;
+    const resetIn = _formatDuration(Math.max(0, resetAt - now.to_unix()));
+    const resetAtLabel = _formatResetAtLabel(resetAt, now);
+    const resetAtDateTime = GLib.DateTime.new_from_unix_utc(resetAt);
+
+    return {
+        detail: `Resets in ${resetIn} (${resetAtLabel})`,
+        resetIn,
+        resetAt: resetAtDateTime?.format_iso8601() ?? null,
+        resetAtLabel,
+    };
 }
 
 function _resetTimestamp(window, now) {
@@ -701,6 +810,24 @@ function _formatDuration(totalSeconds) {
         return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 
     return `${remainingMinutes}m`;
+}
+
+function _formatResetAtLabel(resetAtSeconds, now) {
+    const resetAt = GLib.DateTime.new_from_unix_local(resetAtSeconds);
+    const localNow = GLib.DateTime.new_from_unix_local(now.to_unix());
+    const time = resetAt.format('%H:%M') ?? 'unknown';
+
+    if (_isSameLocalDate(resetAt, localNow))
+        return `resets ${time}`;
+
+    const month = MONTH_NAMES[resetAt.get_month() - 1] ?? '';
+    return `resets ${time} on ${resetAt.get_day_of_month()} ${month}`;
+}
+
+function _isSameLocalDate(first, second) {
+    return first.get_year() === second.get_year() &&
+        first.get_month() === second.get_month() &&
+        first.get_day_of_month() === second.get_day_of_month();
 }
 
 function _usageRatioPercent(used, limit) {

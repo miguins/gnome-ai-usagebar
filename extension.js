@@ -28,6 +28,21 @@ import {refreshVendorUsage} from './vendorUsage.js';
 
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
 const PROGRESS_TRACK_WIDTH = 300;
+const RELATIVE_TIME_REFRESH_SECONDS = 60;
+const RESET_MONTH_NAMES = Object.freeze([
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+]);
 
 const VendorIconFiles = Object.freeze({
     [Vendors.ANTHROPIC]: 'assets/claude-symbolic.svg',
@@ -45,6 +60,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._installedVendors = detectInstalledVendors();
         this._selectedVendor = this._resolveSelectedVendor(this._getSelectedVendorSetting());
         this._refreshSourceId = 0;
+        this._relativeTimeSourceId = 0;
         this._refreshRequestId = 0;
         this._usageCache = new UsageCache({
             ttlSeconds: this._getRefreshIntervalSeconds(),
@@ -58,6 +74,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._bindSettings();
         this._selectVendor(this._selectedVendor, false);
         this._scheduleRefresh();
+        this._scheduleRelativeTimeRefresh();
         this._refreshSelectedVendor();
     }
 
@@ -389,6 +406,22 @@ class AIUsageIndicator extends PanelMenu.Button {
         );
     }
 
+    _scheduleRelativeTimeRefresh() {
+        if (this._relativeTimeSourceId) {
+            GLib.source_remove(this._relativeTimeSourceId);
+            this._relativeTimeSourceId = 0;
+        }
+
+        this._relativeTimeSourceId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            RELATIVE_TIME_REFRESH_SECONDS,
+            () => {
+                this._render();
+                return GLib.SOURCE_CONTINUE;
+            }
+        );
+    }
+
     _detectInstalledVendors() {
         const installedVendors = detectInstalledVendors();
         if (this._areVendorListsEqual(this._installedVendors, installedVendors))
@@ -433,11 +466,13 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _getPanelText(label, state, statusLabel) {
-        const primaryMetric = state.metrics?.find(metric => metric.label === '5h session') ??
+        const primaryMetric = state.metrics?.find(metric => metric.kind === 'current-session') ??
             state.metrics?.find(metric => metric.percent !== null);
         if ((state.status === UsageStatus.READY || state.status === UsageStatus.STALE) &&
-            primaryMetric)
-            return primaryMetric.value;
+            primaryMetric) {
+            const resetIn = this._getMetricResetIn(primaryMetric);
+            return resetIn ? `${primaryMetric.value} · ${resetIn}` : primaryMetric.value;
+        }
 
         return `${label}: ${statusLabel}`;
     }
@@ -541,9 +576,10 @@ class AIUsageIndicator extends PanelMenu.Button {
         }));
         row.add_child(top);
 
-        if (metric.detail) {
+        const detail = this._getMetricDetail(metric);
+        if (detail) {
             row.add_child(new St.Label({
-                text: metric.detail,
+                text: detail,
                 style_class: 'ai-usagebar-metric-detail',
             }));
         }
@@ -570,6 +606,75 @@ class AIUsageIndicator extends PanelMenu.Button {
         }));
 
         return track;
+    }
+
+    _getMetricDetail(metric) {
+        const resetIn = this._getMetricResetIn(metric);
+        const resetAtLabel = this._getMetricResetAtLabel(metric);
+
+        if (resetIn && resetAtLabel)
+            return `Resets in ${resetIn} (${resetAtLabel})`;
+
+        return metric.detail ?? null;
+    }
+
+    _getMetricResetIn(metric) {
+        const resetAt = this._getMetricResetAt(metric);
+        if (!resetAt)
+            return metric.resetIn ?? null;
+
+        return this._formatResetDuration(Math.max(
+            0,
+            resetAt.to_unix() - GLib.DateTime.new_now_utc().to_unix()
+        ));
+    }
+
+    _getMetricResetAtLabel(metric) {
+        const resetAt = this._getMetricResetAt(metric);
+        if (!resetAt)
+            return metric.resetAtLabel ?? null;
+
+        return this._formatResetAtLabel(resetAt);
+    }
+
+    _getMetricResetAt(metric) {
+        if (!metric.resetAt)
+            return null;
+
+        return GLib.DateTime.new_from_iso8601(metric.resetAt, null);
+    }
+
+    _formatResetDuration(totalSeconds) {
+        const minutes = Math.max(0, Math.round(totalSeconds / 60));
+        const days = Math.floor(minutes / 1440);
+        const hours = Math.floor((minutes % 1440) / 60);
+        const remainingMinutes = minutes % 60;
+
+        if (days > 0)
+            return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+
+        if (hours > 0)
+            return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+
+        return `${remainingMinutes}m`;
+    }
+
+    _formatResetAtLabel(resetAt) {
+        const localResetAt = GLib.DateTime.new_from_unix_local(resetAt.to_unix());
+        const localNow = GLib.DateTime.new_now_local();
+        const time = localResetAt.format('%H:%M') ?? _('unknown');
+
+        if (this._isSameLocalDate(localResetAt, localNow))
+            return `resets ${time}`;
+
+        const month = RESET_MONTH_NAMES[localResetAt.get_month() - 1] ?? '';
+        return `resets ${time} on ${localResetAt.get_day_of_month()} ${month}`;
+    }
+
+    _isSameLocalDate(first, second) {
+        return first.get_year() === second.get_year() &&
+            first.get_month() === second.get_month() &&
+            first.get_day_of_month() === second.get_day_of_month();
     }
 
     _getProgressStyleClass(percent) {
@@ -702,6 +807,11 @@ class AIUsageIndicator extends PanelMenu.Button {
         if (this._refreshSourceId) {
             GLib.source_remove(this._refreshSourceId);
             this._refreshSourceId = 0;
+        }
+
+        if (this._relativeTimeSourceId) {
+            GLib.source_remove(this._relativeTimeSourceId);
+            this._relativeTimeSourceId = 0;
         }
 
         super.destroy();

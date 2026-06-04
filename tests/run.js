@@ -10,6 +10,11 @@ import {
     usageStateToJson,
 } from '../usageState.js';
 import {CacheReadStatus, UsageCache} from '../cache.js';
+import {
+    SecretCredentialErrorReason,
+    SecretCredentialStore,
+    secretCredentialAttributes,
+} from '../credentialStore.js';
 import {Vendors} from '../vendors.js';
 import {
     anthropicPlanLabel,
@@ -17,6 +22,7 @@ import {
     buildOpenAIUsageDisplay,
     decodeJwtPayload,
     openAIPlanHintFromToken,
+    refreshVendorUsage,
     summarizeAnthropicUsage,
     summarizeOpenAIUsage,
 } from '../vendorUsage.js';
@@ -35,10 +41,14 @@ test('usage state round trips through cache json', () => {
         plan: 'ChatGPT Plus',
         metrics: [
             {
-                label: '5h session',
+                kind: 'current-session',
+                label: 'Current session (5h)',
                 value: '40%',
                 detail: 'Resets in 2h',
                 percent: 40,
+                resetIn: '2h',
+                resetAt: '2026-06-04T14:00:00Z',
+                resetAtLabel: 'resets 11:00',
             },
         ],
         updatedAt,
@@ -51,8 +61,12 @@ test('usage state round trips through cache json', () => {
     assertEqual(restored.summary, '5h 10m remaining');
     assertEqual(restored.plan, 'ChatGPT Plus');
     assertEqual(restored.metrics.length, 1);
-    assertEqual(restored.metrics[0].label, '5h session');
+    assertEqual(restored.metrics[0].kind, 'current-session');
+    assertEqual(restored.metrics[0].label, 'Current session (5h)');
     assertEqual(restored.metrics[0].percent, 40);
+    assertEqual(restored.metrics[0].resetIn, '2h');
+    assertEqual(restored.metrics[0].resetAt, '2026-06-04T14:00:00Z');
+    assertEqual(restored.metrics[0].resetAtLabel, 'resets 11:00');
     assertEqual(restored.source, UsageSources.CACHE);
     assertEqual(restored.updatedAt.to_unix(), updatedAt.to_unix());
 });
@@ -231,10 +245,15 @@ test('anthropic usage display returns structured metrics', () => {
 
     assertEqual(display.plan, 'Max 5x');
     assertEqual(display.metrics.length, 2);
-    assertEqual(display.metrics[0].label, '5h session');
+    assertEqual(display.metrics[0].kind, 'current-session');
+    assertEqual(display.metrics[0].label, 'Current session (5h)');
     assertEqual(display.metrics[0].value, '43%');
     assertEqual(display.metrics[0].percent, 43);
-    assertEqual(display.metrics[0].detail, 'Resets in 2h 30m');
+    assertEqual(display.metrics[0].resetIn, '2h 30m');
+    assertEqual(
+        display.metrics[0].detail,
+        `Resets in 2h 30m (${expectedResetAtLabel(display.metrics[0].resetAt, now)})`
+    );
 });
 
 test('anthropic plan label handles max tier names', () => {
@@ -265,6 +284,15 @@ test('openai usage summary includes plan windows and credits', () => {
 
 test('openai usage display returns structured metrics', () => {
     const now = GLib.DateTime.new_from_iso8601('2026-06-04T12:00:00Z', null);
+    const weeklyResetAt = GLib.DateTime.new(
+        GLib.TimeZone.new_local(),
+        2026,
+        6,
+        11,
+        10,
+        51,
+        0
+    );
     const display = buildOpenAIUsageDisplay({
         plan_type: 'plus',
         rate_limit: {
@@ -272,7 +300,10 @@ test('openai usage display returns structured metrics', () => {
                 used_percent: 1,
                 reset_after_seconds: 1800,
             },
-            secondary_window: {used_percent: 0},
+            secondary_window: {
+                used_percent: 0,
+                reset_at: weeklyResetAt.to_unix(),
+            },
         },
         credits: {
             balance: '$2.50',
@@ -283,8 +314,16 @@ test('openai usage display returns structured metrics', () => {
 
     assertEqual(display.plan, 'ChatGPT Plus');
     assertEqual(display.metrics.length, 3);
-    assertEqual(display.metrics[0].label, '5h session');
-    assertEqual(display.metrics[0].detail, 'Resets in 30m');
+    assertEqual(display.metrics[0].kind, 'current-session');
+    assertEqual(display.metrics[0].label, 'Current session (5h)');
+    assertEqual(
+        display.metrics[0].detail,
+        `Resets in 30m (${expectedResetAtLabel(display.metrics[0].resetAt, now)})`
+    );
+    assertEqual(
+        display.metrics[1].detail,
+        `Resets in ${formatDurationForTest(weeklyResetAt.to_unix() - now.to_unix())} (resets 10:51 on 11 Jun)`
+    );
     assertEqual(display.metrics[2].label, 'Credits');
     assertEqual(display.metrics[2].detail, '100-200 local');
 });
@@ -301,28 +340,139 @@ test('openai plan hint is decoded from id token', () => {
     assertEqual(openAIPlanHintFromToken(token), 'team');
 });
 
-let failures = 0;
+testAsync('secret credential store returns null for missing keyring item', async () => {
+    const backend = new FakeSecretBackend();
+    const store = new SecretCredentialStore({backend});
 
-for (const {name, callback} of tests) {
+    const document = await store.lookupVendorCredentialDocument(Vendors.OPENAI);
+
+    assertEqual(document, null);
+    assertDeepEqual(backend.lookups[0], {
+        application: 'ai-usagebar@miguins.com',
+        vendor: Vendors.OPENAI,
+        kind: 'oauth-document',
+    });
+});
+
+testAsync('secret credential store parses and stores vendor documents', async () => {
+    const backend = new FakeSecretBackend();
+    const attributes = secretCredentialAttributes(Vendors.ANTHROPIC);
+    backend.set(attributes, JSON.stringify({
+        claudeAiOauth: {
+            accessToken: 'redacted-access',
+            refreshToken: 'redacted-refresh',
+            expiresAt: 1780597324000,
+        },
+    }));
+
+    const store = new SecretCredentialStore({backend});
+    const document = await store.lookupVendorCredentialDocument(Vendors.ANTHROPIC);
+    document.claudeAiOauth.accessToken = 'redacted-updated-access';
+    await store.storeVendorCredentialDocument(Vendors.ANTHROPIC, document);
+
+    assertEqual(document.claudeAiOauth.refreshToken, 'redacted-refresh');
+    assertEqual(backend.stores.length, 1);
+    assertEqual(
+        backend.stores[0].label,
+        'Claude OAuth credentials for GNOME AI UsageBar'
+    );
+    assertDeepEqual(JSON.parse(backend.stores[0].secret), document);
+});
+
+testAsync('secret credential store rejects malformed keyring documents', async () => {
+    const backend = new FakeSecretBackend();
+    backend.set(secretCredentialAttributes(Vendors.OPENAI), '{');
+
+    const store = new SecretCredentialStore({backend});
+
+    await assertRejects(
+        () => store.lookupVendorCredentialDocument(Vendors.OPENAI),
+        SecretCredentialErrorReason.MALFORMED_SECRET
+    );
+});
+
+testAsync('refresh looks up keyring when vendor credential file is missing', async () => {
+    const credentialBaseDir = makeTempDir();
+    const lookups = [];
+    const store = {
+        lookupVendorCredentialDocument: async vendor => {
+            lookups.push(vendor);
+            return null;
+        },
+    };
+
     try {
-        callback();
-        print(`ok - ${name}`);
-    } catch (error) {
-        failures += 1;
-        printerr(`not ok - ${name}`);
-        printerr(error.stack ?? error.message);
-    }
-}
+        const state = await refreshVendorUsage(Vendors.OPENAI, {
+            credentialBaseDir,
+            secretCredentialStore: store,
+            session: {},
+        });
 
-System.exit(failures === 0 ? 0 : 1);
+        assertEqual(state.status, UsageStatus.UNAUTHENTICATED);
+        assertEqual(lookups.length, 1);
+        assertEqual(lookups[0], Vendors.OPENAI);
+        assertEqual(
+            state.summary,
+            'Codex credentials are missing. Run `codex login` to sign in, or add a GNOME Keyring OAuth credential.'
+        );
+    } finally {
+        removeTree(credentialBaseDir);
+    }
+});
+
+testAsync('refresh refuses unsafe vendor credential files before keyring fallback', async () => {
+    const credentialBaseDir = makeTempDir();
+    const credentialDir = GLib.build_filenamev([credentialBaseDir, '.codex']);
+    const credentialPath = GLib.build_filenamev([credentialDir, 'auth.json']);
+    let lookupCount = 0;
+    const store = {
+        lookupVendorCredentialDocument: async () => {
+            lookupCount += 1;
+            return null;
+        },
+    };
+
+    try {
+        GLib.mkdir_with_parents(credentialDir, 0o700);
+        GLib.file_set_contents(credentialPath, '{}\n');
+        GLib.chmod(credentialPath, 0o644);
+
+        const state = await refreshVendorUsage(Vendors.OPENAI, {
+            credentialBaseDir,
+            secretCredentialStore: store,
+            session: {},
+        });
+
+        assertEqual(state.status, UsageStatus.UNAUTHENTICATED);
+        assertEqual(lookupCount, 0);
+        assertEqual(
+            state.summary,
+            'Credential file permissions are unsafe; refusing to read credentials.'
+        );
+    } finally {
+        removeTree(credentialBaseDir);
+    }
+});
 
 function test(name, callback) {
+    tests.push({name, callback});
+}
+
+function testAsync(name, callback) {
     tests.push({name, callback});
 }
 
 function assertEqual(actual, expected) {
     if (actual !== expected)
         throw new Error(`Expected ${expected}, got ${actual}`);
+}
+
+function assertDeepEqual(actual, expected) {
+    const actualJson = JSON.stringify(actual);
+    const expectedJson = JSON.stringify(expected);
+
+    if (actualJson !== expectedJson)
+        throw new Error(`Expected ${expectedJson}, got ${actualJson}`);
 }
 
 function assertThrows(callback, expectedMessage) {
@@ -339,6 +489,104 @@ function assertThrows(callback, expectedMessage) {
     }
 
     throw new Error(`Expected error containing "${expectedMessage}"`);
+}
+
+async function assertRejects(callback, expectedReason) {
+    try {
+        await callback();
+    } catch (error) {
+        if (error.reason !== expectedReason) {
+            throw new Error(
+                `Expected rejection reason "${expectedReason}", got "${error.reason}"`
+            );
+        }
+
+        return;
+    }
+
+    throw new Error(`Expected rejection reason "${expectedReason}"`);
+}
+
+function expectedResetAtLabel(resetAt, now) {
+    const dateTime = GLib.DateTime.new_from_iso8601(resetAt, null);
+    const localDateTime = GLib.DateTime.new_from_unix_local(dateTime.to_unix());
+    const localNow = GLib.DateTime.new_from_unix_local(now.to_unix());
+    const time = localDateTime.format('%H:%M');
+    const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+    ];
+
+    if (sameLocalDate(localDateTime, localNow))
+        return `resets ${time}`;
+
+    return `resets ${time} on ${localDateTime.get_day_of_month()} ${monthNames[localDateTime.get_month() - 1]}`;
+}
+
+function sameLocalDate(first, second) {
+    return first.get_year() === second.get_year() &&
+        first.get_month() === second.get_month() &&
+        first.get_day_of_month() === second.get_day_of_month();
+}
+
+function formatDurationForTest(totalSeconds) {
+    const minutes = Math.max(0, Math.round(totalSeconds / 60));
+    const days = Math.floor(minutes / 1440);
+    const hours = Math.floor((minutes % 1440) / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (days > 0)
+        return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+
+    if (hours > 0)
+        return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+
+    return `${remainingMinutes}m`;
+}
+
+class FakeSecretBackend {
+    constructor() {
+        this._secrets = new Map();
+        this.lookups = [];
+        this.stores = [];
+    }
+
+    set(attributes, secret) {
+        this._secrets.set(this._key(attributes), secret);
+    }
+
+    async lookup(attributes) {
+        this.lookups.push({...attributes});
+        return this._secrets.get(this._key(attributes)) ?? null;
+    }
+
+    async store(attributes, label, secret) {
+        this.stores.push({
+            attributes: {...attributes},
+            label,
+            secret,
+        });
+        this._secrets.set(this._key(attributes), secret);
+        return true;
+    }
+
+    _key(attributes) {
+        return [
+            attributes.application,
+            attributes.vendor,
+            attributes.kind,
+        ].join('\n');
+    }
 }
 
 function fakeJwt(claims) {
@@ -410,3 +658,20 @@ function removeTree(path) {
             throw error;
     }
 }
+
+let failures = 0;
+
+for (const {name, callback} of tests) {
+    try {
+        const result = callback();
+        if (result && typeof result.then === 'function')
+            await result;
+        print(`ok - ${name}`);
+    } catch (error) {
+        failures += 1;
+        printerr(`not ok - ${name}`);
+        printerr(error.stack ?? error.message);
+    }
+}
+
+System.exit(failures === 0 ? 0 : 1);

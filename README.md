@@ -28,13 +28,53 @@ Implemented:
 - Shared usage state model for success and error states.
 - Permissions-aware local cache for normalized usage state.
 - Initial live usage fetching from Claude and Codex CLI-managed OAuth credentials.
+- Owner-only permission checks for local credential files before reading or
+  refreshing tokens.
+- GNOME Keyring/Secret Service lookup for vendor OAuth documents when
+  CLI-managed credential files are absent.
+- GNOME Keyring/Secret Service write-back when keyring-loaded OAuth tokens are
+  refreshed.
 - Cache population from normalized live usage results.
-- GJS tests for usage state and cache behavior.
+- GJS tests for usage state, cache, and credential behavior.
 
 Planned:
 
-- GNOME Keyring credential lookup.
 - GNOME 40-44 legacy extension entry point.
+
+## Credential Security
+
+The extension does not store API keys or OAuth tokens in GSettings, project
+files, logs, or shell environment variables.
+
+For the current live usage implementation, credentials are read from Claude and
+Codex CLI-managed OAuth files only after verifying that the credential path is a
+regular file and that group/other permission bits are not set. Refreshed tokens
+are written back through a temporary file and forced to owner-only permissions.
+
+If the vendor-managed credential file is absent, the extension looks for an
+OAuth document in GNOME Keyring/Secret Service. Keyring-loaded OAuth documents
+are written back to Keyring after token refresh, not copied into project config
+or GSettings.
+
+The extension's Secret Service schema name is:
+
+```text
+schema: com.miguins.ai_usagebar.Credentials
+```
+
+Lookup matches keyring items by this attribute set, so user-managed entries
+should use the same attributes:
+
+```text
+application: ai-usagebar@miguins.com
+vendor: anthropic | openai
+kind: oauth-document
+```
+
+The item secret is the vendor OAuth document JSON. Treat it as sensitive: do not
+paste it into issue reports, logs, shell history, or project files. If neither a
+safe vendor-managed credential source nor a Secret Service credential is
+available, the extension fails closed with an unauthenticated state.
 
 ## GNOME Shell Compatibility
 
@@ -86,6 +126,7 @@ gnome-extensions pack \
   --out-dir /tmp/gnome-ai-usagebar-pack \
   --schema=schemas/org.gnome.shell.extensions.ai-usagebar.gschema.xml \
   --extra-source=cache.js \
+  --extra-source=credentialStore.js \
   --extra-source=usageState.js \
   --extra-source=vendorUsage.js \
   --extra-source=vendors.js \

@@ -189,10 +189,14 @@ function _normalizeMetric(metric) {
         return null;
 
     return Object.freeze({
+        kind: _normalizeOptionalText(metric.kind),
         label,
         value,
         detail: _normalizeOptionalText(metric.detail),
         percent: _normalizePercent(metric.percent),
+        resetIn: _normalizeOptionalText(metric.resetIn),
+        resetAt: _normalizeOptionalText(metric.resetAt),
+        resetAtLabel: _normalizeOptionalText(metric.resetAtLabel),
     });
 }
 
