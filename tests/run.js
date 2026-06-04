@@ -11,6 +11,15 @@ import {
 } from '../usageState.js';
 import {CacheReadStatus, UsageCache} from '../cache.js';
 import {Vendors} from '../vendors.js';
+import {
+    anthropicPlanLabel,
+    buildAnthropicUsageDisplay,
+    buildOpenAIUsageDisplay,
+    decodeJwtPayload,
+    openAIPlanHintFromToken,
+    summarizeAnthropicUsage,
+    summarizeOpenAIUsage,
+} from '../vendorUsage.js';
 
 const tests = [];
 
@@ -23,6 +32,15 @@ test('usage state round trips through cache json', () => {
     const state = createUsageState({
         status: UsageStatus.READY,
         summary: '5h 10m remaining',
+        plan: 'ChatGPT Plus',
+        metrics: [
+            {
+                label: '5h session',
+                value: '40%',
+                detail: 'Resets in 2h',
+                percent: 40,
+            },
+        ],
         updatedAt,
     });
 
@@ -31,6 +49,10 @@ test('usage state round trips through cache json', () => {
     assertEqual(restored.status, UsageStatus.READY);
     assertEqual(restored.statusLabel, 'OK');
     assertEqual(restored.summary, '5h 10m remaining');
+    assertEqual(restored.plan, 'ChatGPT Plus');
+    assertEqual(restored.metrics.length, 1);
+    assertEqual(restored.metrics[0].label, '5h session');
+    assertEqual(restored.metrics[0].percent, 40);
     assertEqual(restored.source, UsageSources.CACHE);
     assertEqual(restored.updatedAt.to_unix(), updatedAt.to_unix());
 });
@@ -176,6 +198,109 @@ test('cache refuses unsafe directory permissions on write', () => {
     }
 });
 
+test('anthropic usage summary includes plan windows and extra usage', () => {
+    const summary = summarizeAnthropicUsage({
+        five_hour: {utilization: 42.7},
+        seven_day: {utilization: 27},
+        seven_day_sonnet: {utilization: 4.2},
+        extra_usage: {
+            is_enabled: true,
+            monthly_limit: 5000,
+            used_credits: 250,
+        },
+    }, {
+        subscriptionType: 'max',
+        rateLimitTier: 'default_claude_max_5x',
+    });
+
+    assertEqual(summary, 'Max 5x: 43% 5h, 27% weekly, 4% Sonnet, extra $2.50 / $50.00');
+});
+
+test('anthropic usage display returns structured metrics', () => {
+    const now = GLib.DateTime.new_from_iso8601('2026-06-04T12:00:00Z', null);
+    const display = buildAnthropicUsageDisplay({
+        five_hour: {
+            utilization: 42.7,
+            resets_at: '2026-06-04T14:30:00Z',
+        },
+        seven_day: {utilization: 27},
+    }, {
+        subscriptionType: 'max',
+        rateLimitTier: 'default_claude_max_5x',
+    }, {now});
+
+    assertEqual(display.plan, 'Max 5x');
+    assertEqual(display.metrics.length, 2);
+    assertEqual(display.metrics[0].label, '5h session');
+    assertEqual(display.metrics[0].value, '43%');
+    assertEqual(display.metrics[0].percent, 43);
+    assertEqual(display.metrics[0].detail, 'Resets in 2h 30m');
+});
+
+test('anthropic plan label handles max tier names', () => {
+    assertEqual(anthropicPlanLabel({
+        subscriptionType: 'max',
+        rateLimitTier: 'default_claude_max_20x',
+    }), 'Max 20x');
+});
+
+test('openai usage summary includes plan windows and credits', () => {
+    const summary = summarizeOpenAIUsage({
+        plan_type: 'plus',
+        rate_limit: {
+            primary_window: {used_percent: 1},
+            secondary_window: {used_percent: 0},
+        },
+        code_review_rate_limit: {
+            primary_window: {used_percent: 33},
+        },
+        credits: {
+            balance: 1.5,
+            unlimited: false,
+        },
+    });
+
+    assertEqual(summary, 'ChatGPT Plus: 1% 5h, 0% weekly, 33% code review, credits $1.50');
+});
+
+test('openai usage display returns structured metrics', () => {
+    const now = GLib.DateTime.new_from_iso8601('2026-06-04T12:00:00Z', null);
+    const display = buildOpenAIUsageDisplay({
+        plan_type: 'plus',
+        rate_limit: {
+            primary_window: {
+                used_percent: 1,
+                reset_after_seconds: 1800,
+            },
+            secondary_window: {used_percent: 0},
+        },
+        credits: {
+            balance: '$2.50',
+            unlimited: false,
+            approx_local_messages: [100, 200],
+        },
+    }, {now});
+
+    assertEqual(display.plan, 'ChatGPT Plus');
+    assertEqual(display.metrics.length, 3);
+    assertEqual(display.metrics[0].label, '5h session');
+    assertEqual(display.metrics[0].detail, 'Resets in 30m');
+    assertEqual(display.metrics[2].label, 'Credits');
+    assertEqual(display.metrics[2].detail, '100-200 local');
+});
+
+test('openai plan hint is decoded from id token', () => {
+    const token = fakeJwt({
+        exp: 1780597324,
+        'https://api.openai.com/auth': {
+            chatgpt_plan_type: 'team',
+        },
+    });
+
+    assertEqual(decodeJwtPayload(token).exp, 1780597324);
+    assertEqual(openAIPlanHintFromToken(token), 'team');
+});
+
 let failures = 0;
 
 for (const {name, callback} of tests) {
@@ -214,6 +339,21 @@ function assertThrows(callback, expectedMessage) {
     }
 
     throw new Error(`Expected error containing "${expectedMessage}"`);
+}
+
+function fakeJwt(claims) {
+    return [
+        base64UrlEncode('{"alg":"none","typ":"JWT"}'),
+        base64UrlEncode(JSON.stringify(claims)),
+        'sig',
+    ].join('.');
+}
+
+function base64UrlEncode(text) {
+    return GLib.base64_encode(new TextEncoder().encode(text))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
 }
 
 function makeTempDir() {

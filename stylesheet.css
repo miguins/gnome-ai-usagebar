@@ -1,5 +1,64 @@
+.ai-usagebar-panel-box {
+    spacing: 4px;
+}
+
 .ai-usagebar-panel-label {
-    margin-left: 4px;
+    color: rgba(255, 255, 255, 0.96);
+    font-weight: 700;
+    min-width: 30px;
+}
+
+.ai-usagebar-panel-icon {
+    icon-size: 16px;
+}
+
+.ai-usagebar-overview {
+    spacing: 10px;
+    min-width: 300px;
+    padding: 4px 0;
+}
+
+.ai-usagebar-overview-icon {
+    icon-size: 24px;
+}
+
+.ai-usagebar-overview-title {
+    font-weight: 700;
+}
+
+.ai-usagebar-overview-subtitle,
+.ai-usagebar-footer,
+.ai-usagebar-metric-detail {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.82em;
+}
+
+.ai-usagebar-status-badge {
+    border-radius: 6px;
+    font-size: 0.78em;
+    font-weight: 700;
+    padding: 3px 8px;
+}
+
+.ai-usagebar-status-ready {
+    background-color: rgba(46, 194, 126, 0.18);
+    color: rgb(87, 227, 137);
+}
+
+.ai-usagebar-status-stale,
+.ai-usagebar-status-warning {
+    background-color: rgba(245, 194, 17, 0.18);
+    color: rgb(248, 228, 92);
+}
+
+.ai-usagebar-status-error {
+    background-color: rgba(237, 51, 59, 0.18);
+    color: rgb(255, 123, 114);
+}
+
+.ai-usagebar-status-neutral {
+    background-color: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.78);
 }
 
 .ai-usagebar-vendor-label {
@@ -30,16 +89,75 @@
     text-align: center;
 }
 
-.ai-usagebar-row {
-    max-width: 280px;
-    spacing: 2px;
+.ai-usagebar-metrics {
+    min-width: 300px;
+    spacing: 10px;
 }
 
-.ai-usagebar-row-title {
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 0.82em;
+.ai-usagebar-metric-row {
+    spacing: 4px;
 }
 
-.ai-usagebar-row-value {
-    min-width: 220px;
+.ai-usagebar-metric-top {
+    spacing: 12px;
+}
+
+.ai-usagebar-metric-label {
+    font-weight: 600;
+}
+
+.ai-usagebar-metric-value {
+    font-weight: 700;
+}
+
+.ai-usagebar-progress-track {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-radius: 3px;
+    min-width: 300px;
+}
+
+.ai-usagebar-progress-fill {
+    border-radius: 3px;
+}
+
+.ai-usagebar-progress-ok {
+    background-color: rgb(87, 227, 137);
+}
+
+.ai-usagebar-progress-warning {
+    background-color: rgb(248, 228, 92);
+}
+
+.ai-usagebar-progress-critical {
+    background-color: rgb(255, 123, 114);
+}
+
+.ai-usagebar-message {
+    max-width: 300px;
+}
+
+.ai-usagebar-footer {
+    min-width: 300px;
+}
+
+.ai-usagebar-actions {
+    min-width: 300px;
+}
+
+.ai-usagebar-refresh-button {
+    border-radius: 6px;
+    padding: 7px 10px;
+}
+
+.ai-usagebar-refresh-button:hover,
+.ai-usagebar-refresh-button:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+.ai-usagebar-refresh-content {
+    spacing: 8px;
+}
+
+.ai-usagebar-action-icon {
+    icon-size: 16px;
 }

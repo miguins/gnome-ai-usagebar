@@ -60,6 +60,8 @@ export function getUsageStatusLabel(status) {
 export function createUsageState({
     status,
     summary = null,
+    plan = null,
+    metrics = [],
     updatedAt = null,
     source = UsageSources.LIVE,
 } = {}) {
@@ -73,6 +75,8 @@ export function createUsageState({
         status,
         statusLabel: getUsageStatusLabel(status),
         summary: _normalizeSummary(summary, status),
+        plan: _normalizeOptionalText(plan),
+        metrics: _normalizeMetrics(metrics),
         updatedAt: normalizeDateTime(updatedAt),
         source,
     });
@@ -105,6 +109,8 @@ export function usageStateToJson(state) {
     return {
         status: state.status,
         summary: _normalizeSummary(state.summary, state.status),
+        plan: _normalizeOptionalText(state.plan),
+        metrics: _normalizeMetrics(state.metrics),
         updatedAt: dateTimeToIso8601(state.updatedAt),
     };
 }
@@ -116,6 +122,8 @@ export function usageStateFromJson(value, source = UsageSources.CACHE) {
     return createUsageState({
         status: value.status,
         summary: value.summary,
+        plan: value.plan,
+        metrics: value.metrics,
         updatedAt: value.updatedAt,
         source,
     });
@@ -148,4 +156,55 @@ function _normalizeSummary(summary, status) {
         return summary;
 
     return DefaultSummaries[status] ?? 'Usage state is unavailable.';
+}
+
+function _normalizeOptionalText(value) {
+    if (typeof value !== 'string')
+        return null;
+
+    const text = value.trim();
+    return text.length > 0 ? text : null;
+}
+
+function _normalizeMetrics(metrics) {
+    if (!Array.isArray(metrics))
+        return Object.freeze([]);
+
+    return Object.freeze(metrics
+        .map(_normalizeMetric)
+        .filter(metric => metric !== null));
+}
+
+function _normalizeMetric(metric) {
+    if (!metric || typeof metric !== 'object' || Array.isArray(metric))
+        return null;
+
+    const label = _normalizeOptionalText(metric.label);
+    if (!label)
+        return null;
+
+    const value = _normalizeOptionalText(metric.value) ??
+        _valueFromPercent(metric.percent);
+    if (!value)
+        return null;
+
+    return Object.freeze({
+        label,
+        value,
+        detail: _normalizeOptionalText(metric.detail),
+        percent: _normalizePercent(metric.percent),
+    });
+}
+
+function _normalizePercent(value) {
+    const percent = Number(value);
+    if (!Number.isFinite(percent))
+        return null;
+
+    return Math.min(100, Math.max(0, Math.round(percent)));
+}
+
+function _valueFromPercent(value) {
+    const percent = _normalizePercent(value);
+    return percent === null ? null : `${percent}%`;
 }
