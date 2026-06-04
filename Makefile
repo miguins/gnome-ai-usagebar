@@ -1,6 +1,7 @@
 PACK_DIR ?= /tmp/gnome-ai-usagebar-pack
 PACK_SCHEMA := schemas/org.gnome.shell.extensions.ai-usagebar.gschema.xml
 PACK_SOURCES := \
+	LICENSE \
 	anthropicUsage.js \
 	cache.js \
 	credentialStore.js \

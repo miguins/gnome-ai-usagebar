@@ -50,7 +50,9 @@ mkdir -p ~/.local/share/gnome-shell/extensions
 ln -s "$PWD" ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
 ```
 
-Compile the settings schema:
+The repository includes `schemas/gschemas.compiled`, so a fresh checkout does
+not need a schema compilation step before enabling the extension. If you edit
+the schema XML during development, regenerate it manually:
 
 ```sh
 glib-compile-schemas schemas
@@ -64,6 +66,45 @@ gnome-extensions enable ai-usagebar@miguins.com
 
 If GNOME Shell does not list the extension immediately, log out and back in so
 the shell reloads the extension directory.
+
+## Manual Install
+
+A bundler is not required for a personal install. GNOME Shell can load an
+unpacked extension directory directly from:
+
+```text
+~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
+```
+
+The directory name must match the `uuid` in `metadata.json`.
+
+From a cloned checkout or an extracted source archive, copy the project into the
+GNOME Shell extensions directory:
+
+```sh
+mkdir -p ~/.local/share/gnome-shell/extensions
+cp -a "$PWD" ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
+```
+
+The copied directory already includes the compiled settings schema. If you copy
+from a source that does not include `schemas/gschemas.compiled`, compile the
+schema manually:
+
+```sh
+glib-compile-schemas \
+  ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com/schemas
+```
+
+Enable the extension:
+
+```sh
+gnome-extensions enable ai-usagebar@miguins.com
+```
+
+If you are replacing an existing copy, disable the extension first, replace the
+`ai-usagebar@miguins.com` directory with the new source, and then enable the
+extension. Log out and back in if GNOME Shell does not pick up the new files
+immediately.
 
 ## Run Checks
 
@@ -91,6 +132,9 @@ glib-compile-schemas --strict --dry-run schemas
 ```
 
 ## Build A Bundle
+
+This step is optional for local installs. Use it when you want a distributable
+GNOME Shell extension zip.
 
 ```sh
 make pack
@@ -182,5 +226,4 @@ unnecessary network requests when fresh cached data is available.
 
 ## License
 
-MIT is intended for this project. Add the `LICENSE` file before distributing a
-release package.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
