@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.ai-usagebar" path="/org/gnome/shell/extensions/ai-usagebar/">
+    <key name="selected-vendor" type="s">
+      <default>'anthropic'</default>
+      <summary>Selected vendor</summary>
+      <description>The vendor shown by default in the panel indicator and dropdown.</description>
+    </key>
+    <key name="refresh-interval-seconds" type="u">
+      <default>300</default>
+      <range min="60" max="3600"/>
+      <summary>Refresh interval</summary>
+      <description>How often usage should refresh in the background, in seconds.</description>
+    </key>
+  </schema>
+</schemalist>

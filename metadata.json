@@ -1,0 +1,8 @@
+{
+  "uuid": "ai-usagebar@miguins.com",
+  "name": "AI UsageBar",
+  "description": "Monitor AI plan usage from the GNOME top bar.",
+  "version": 1,
+  "settings-schema": "org.gnome.shell.extensions.ai-usagebar",
+  "shell-version": ["45", "46", "47", "48", "49"]
+}

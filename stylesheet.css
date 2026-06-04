@@ -1,0 +1,45 @@
+.ai-usagebar-panel-label {
+    margin-left: 4px;
+}
+
+.ai-usagebar-vendor-label {
+    spacing: 6px;
+}
+
+.ai-usagebar-tabs {
+    spacing: 6px;
+    padding: 2px 0;
+}
+
+.ai-usagebar-tab {
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: center;
+}
+
+.ai-usagebar-tab-selected {
+    background-color: rgba(53, 132, 228, 0.28);
+}
+
+.ai-usagebar-tab-icon {
+    icon-size: 16px;
+}
+
+.ai-usagebar-tab-empty {
+    padding: 6px 10px;
+    text-align: center;
+}
+
+.ai-usagebar-row {
+    max-width: 280px;
+    spacing: 2px;
+}
+
+.ai-usagebar-row-title {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.82em;
+}
+
+.ai-usagebar-row-value {
+    min-width: 220px;
+}
