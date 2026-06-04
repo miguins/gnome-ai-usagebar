@@ -7,6 +7,12 @@ The project is inspired by
 [akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar), but it
 is not a Waybar module and it is not a wrapper around the Rust CLI.
 
+## Screenshots
+
+![AI UsageBar dropdown showing organized usage metrics](docs/usage_bar.png)
+
+![AI UsageBar in the GNOME top bar](docs/usage_bar_desktop.png)
+
 ## Status
 
 Early GNOME 45+ implementation.
@@ -18,16 +24,16 @@ Implemented:
 - Detection for locally installed Claude Code and Codex CLIs.
 - Dropdown with detected Claude and Codex tabs.
 - GNOME-native preferences for default vendor and refresh interval.
-- Manual and scheduled refresh placeholders.
+- Manual and scheduled refresh.
 - Shared usage state model for success and error states.
 - Permissions-aware local cache for normalized usage state.
+- Initial live usage fetching from Claude and Codex CLI-managed OAuth credentials.
+- Cache population from normalized live usage results.
 - GJS tests for usage state and cache behavior.
 
 Planned:
 
 - GNOME Keyring credential lookup.
-- Vendor usage fetching for Anthropic Claude and OpenAI Codex/ChatGPT.
-- Cache population from live vendor responses.
 - GNOME 40-44 legacy extension entry point.
 
 ## GNOME Shell Compatibility
@@ -81,6 +87,7 @@ gnome-extensions pack \
   --schema=schemas/org.gnome.shell.extensions.ai-usagebar.gschema.xml \
   --extra-source=cache.js \
   --extra-source=usageState.js \
+  --extra-source=vendorUsage.js \
   --extra-source=vendors.js \
   --extra-source=assets/claude-symbolic.svg \
   --extra-source=assets/codex-symbolic.svg \
