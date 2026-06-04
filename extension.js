@@ -27,8 +27,11 @@ import {
 import {refreshVendorUsage} from './vendorUsage.js';
 
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
+const METRIC_CONTENT_SPACING = 4;
+const METRIC_ROW_SPACING = 10;
 const PROGRESS_TRACK_WIDTH = 300;
 const RELATIVE_TIME_REFRESH_SECONDS = 60;
+const REFRESH_CONTENT_SPACING = 8;
 const RESET_MONTH_NAMES = Object.freeze([
     'Jan',
     'Feb',
@@ -59,9 +62,11 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._extensionDir = this._getExtensionDir();
         this._installedVendors = detectInstalledVendors();
         this._selectedVendor = this._resolveSelectedVendor(this._getSelectedVendorSetting());
+        this._ignoreSelectedVendorSetting = false;
         this._refreshSourceId = 0;
         this._relativeTimeSourceId = 0;
         this._refreshRequestId = 0;
+        this._destroyed = false;
         this._usageCache = new UsageCache({
             ttlSeconds: this._getRefreshIntervalSeconds(),
         });
@@ -72,7 +77,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._buildPanelButton();
         this._buildMenu();
         this._bindSettings();
-        this._selectVendor(this._selectedVendor, false);
+        this._selectVendor(this._selectedVendor, {persist: false});
         this._scheduleRefresh();
         this._scheduleRelativeTimeRefresh();
         this._refreshSelectedVendor();
@@ -82,9 +87,11 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._panelBox = new St.BoxLayout({
             style_class: 'ai-usagebar-panel-box',
         });
+        this._panelBox.layout_manager.spacing = 4;
         this._panelIcon = new St.Icon({
             icon_name: 'utilities-system-monitor-symbolic',
             style_class: 'system-status-icon ai-usagebar-panel-icon',
+            icon_size: 16,
         });
 
         this._panelLabel = new St.Label({
@@ -105,6 +112,7 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-tabs',
             x_expand: true,
         });
+        this._tabBox.layout_manager.spacing = 6;
 
         this._tabButtons = new Map();
         this._rebuildTabs();
@@ -144,7 +152,7 @@ class AIUsageIndicator extends PanelMenu.Button {
                 x_expand: true,
             });
             button.set_child(this._buildVendorLabel(vendor, 'ai-usagebar-tab-icon'));
-            button.connect('clicked', () => this._selectVendor(vendor));
+            button.connect('clicked', () => this._selectVendor(vendor, {refresh: true}));
             this._tabButtons.set(vendor, button);
             this._tabBox.add_child(button);
         }
@@ -159,8 +167,10 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-overview',
             x_expand: true,
         });
+        box.layout_manager.spacing = 10;
         this._overviewIcon = new St.Icon({
             style_class: 'ai-usagebar-overview-icon',
+            icon_size: 24,
         });
         const textBox = new St.BoxLayout({
             vertical: true,
@@ -252,7 +262,9 @@ class AIUsageIndicator extends PanelMenu.Button {
         content.add_child(new St.Icon({
             icon_name: 'view-refresh-symbolic',
             style_class: 'ai-usagebar-action-icon',
+            icon_size: 16,
         }));
+        content.add_child(this._buildHorizontalSpacer(REFRESH_CONTENT_SPACING));
         content.add_child(new St.Label({
             text: _('Refresh'),
             y_align: Clutter.ActorAlign.CENTER,
@@ -268,7 +280,13 @@ class AIUsageIndicator extends PanelMenu.Button {
     _bindSettings() {
         this._settingsSignals.push(
             this._settings.connect('changed::selected-vendor', () => {
-                this._selectVendor(this._getSelectedVendorSetting(), false);
+                if (this._ignoreSelectedVendorSetting)
+                    return;
+
+                this._selectVendor(this._getSelectedVendorSetting(), {
+                    persist: false,
+                    refresh: true,
+                });
             })
         );
 
@@ -279,7 +297,10 @@ class AIUsageIndicator extends PanelMenu.Button {
         );
     }
 
-    _selectVendor(vendor, persist = true) {
+    _selectVendor(vendor, {
+        persist = true,
+        refresh = false,
+    } = {}) {
         vendor = this._resolveSelectedVendor(vendor);
 
         this._selectedVendor = vendor;
@@ -289,8 +310,14 @@ class AIUsageIndicator extends PanelMenu.Button {
             return;
         }
 
-        if (persist && this._settings.get_string('selected-vendor') !== vendor)
-            this._settings.set_string('selected-vendor', vendor);
+        if (persist && this._settings.get_string('selected-vendor') !== vendor) {
+            this._ignoreSelectedVendorSetting = true;
+            try {
+                this._settings.set_string('selected-vendor', vendor);
+            } finally {
+                this._ignoreSelectedVendorSetting = false;
+            }
+        }
 
         for (const [tabVendor, button] of this._tabButtons.entries()) {
             button.set_style_class_name(tabVendor === vendor
@@ -299,6 +326,9 @@ class AIUsageIndicator extends PanelMenu.Button {
         }
 
         this._render();
+
+        if (refresh)
+            this._refreshSelectedVendor();
     }
 
     _buildVendorLabel(vendor, iconStyleClass) {
@@ -306,9 +336,11 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-vendor-label',
             x_expand: true,
         });
+        box.layout_manager.spacing = 6;
         box.add_child(new St.Icon({
             gicon: this._getVendorIcon(vendor),
             style_class: iconStyleClass,
+            icon_size: 16,
         }));
         box.add_child(new St.Label({
             text: VendorLabels[vendor],
@@ -362,7 +394,9 @@ class AIUsageIndicator extends PanelMenu.Button {
 
     _refreshSelectedVendor({force = false} = {}) {
         this._detectInstalledVendors();
-        this._selectVendor(this._selectedVendor ?? this._getSelectedVendorSetting(), false);
+        this._selectVendor(this._selectedVendor ?? this._getSelectedVendorSetting(), {
+            persist: false,
+        });
 
         if (!this._selectedVendor)
             return;
@@ -377,7 +411,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         const requestId = ++this._refreshRequestId;
         const state = await refreshVendorUsage(vendor);
 
-        if (requestId !== this._refreshRequestId)
+        if (this._destroyed || requestId !== this._refreshRequestId)
             return;
 
         this._vendorState[vendor] = state;
@@ -550,8 +584,25 @@ class AIUsageIndicator extends PanelMenu.Button {
         }
 
         this._metricsItem.show();
-        for (const metric of metrics)
+        metrics.forEach((metric, index) => {
+            if (index > 0)
+                this._metricsBox.add_child(this._buildVerticalSpacer(METRIC_ROW_SPACING));
+
             this._metricsBox.add_child(this._buildMetricRow(metric));
+        });
+    }
+
+    _buildVerticalSpacer(height) {
+        return new St.Widget({
+            height,
+            x_expand: true,
+        });
+    }
+
+    _buildHorizontalSpacer(width) {
+        return new St.Widget({
+            width,
+        });
     }
 
     _buildMetricRow(metric) {
@@ -564,6 +615,7 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-metric-top',
             x_expand: true,
         });
+        top.layout_manager.spacing = 12;
         top.add_child(new St.Label({
             text: metric.label,
             style_class: 'ai-usagebar-metric-label',
@@ -578,14 +630,17 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         const detail = this._getMetricDetail(metric);
         if (detail) {
+            row.add_child(this._buildVerticalSpacer(METRIC_CONTENT_SPACING));
             row.add_child(new St.Label({
                 text: detail,
                 style_class: 'ai-usagebar-metric-detail',
             }));
         }
 
-        if (metric.percent !== null)
+        if (metric.percent !== null) {
+            row.add_child(this._buildVerticalSpacer(METRIC_CONTENT_SPACING));
             row.add_child(this._buildProgressBar(metric.percent));
+        }
 
         return row;
     }
@@ -800,6 +855,9 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     destroy() {
+        this._destroyed = true;
+        this._refreshRequestId += 1;
+
         for (const signalId of this._settingsSignals)
             this._settings.disconnect(signalId);
         this._settingsSignals = [];

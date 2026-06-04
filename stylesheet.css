@@ -1,25 +1,12 @@
-.ai-usagebar-panel-box {
-    spacing: 4px;
-}
-
 .ai-usagebar-panel-label {
     color: rgba(255, 255, 255, 0.96);
     font-weight: 700;
     min-width: 30px;
 }
 
-.ai-usagebar-panel-icon {
-    icon-size: 16px;
-}
-
 .ai-usagebar-overview {
-    spacing: 10px;
     min-width: 300px;
     padding: 4px 0;
-}
-
-.ai-usagebar-overview-icon {
-    icon-size: 24px;
 }
 
 .ai-usagebar-overview-title {
@@ -61,12 +48,7 @@
     color: rgba(255, 255, 255, 0.78);
 }
 
-.ai-usagebar-vendor-label {
-    spacing: 6px;
-}
-
 .ai-usagebar-tabs {
-    spacing: 6px;
     padding: 2px 0;
 }
 
@@ -80,10 +62,6 @@
     background-color: rgba(53, 132, 228, 0.28);
 }
 
-.ai-usagebar-tab-icon {
-    icon-size: 16px;
-}
-
 .ai-usagebar-tab-empty {
     padding: 6px 10px;
     text-align: center;
@@ -91,15 +69,6 @@
 
 .ai-usagebar-metrics {
     min-width: 300px;
-    spacing: 10px;
-}
-
-.ai-usagebar-metric-row {
-    spacing: 4px;
-}
-
-.ai-usagebar-metric-top {
-    spacing: 12px;
 }
 
 .ai-usagebar-metric-label {
@@ -152,12 +121,4 @@
 .ai-usagebar-refresh-button:hover,
 .ai-usagebar-refresh-button:focus {
     background-color: rgba(255, 255, 255, 0.10);
-}
-
-.ai-usagebar-refresh-content {
-    spacing: 8px;
-}
-
-.ai-usagebar-action-icon {
-    icon-size: 16px;
 }

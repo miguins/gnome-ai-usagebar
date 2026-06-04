@@ -1,11 +1,12 @@
 # GNOME AI UsageBar
 
-GNOME AI UsageBar is a GNOME Shell extension for monitoring AI plan usage from
-the top bar.
+GNOME AI UsageBar is a GNOME Shell extension that shows AI plan usage in the top
+bar.
 
-The project is inspired by
+It is inspired by
 [akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar), but it
-is not a Waybar module and it is not a wrapper around the Rust CLI.
+is a GNOME-native GJS extension. It does not require the upstream Rust binary at
+runtime.
 
 ## Screenshots
 
@@ -13,102 +14,49 @@ is not a Waybar module and it is not a wrapper around the Rust CLI.
 
 ![AI UsageBar in the GNOME top bar](docs/usage_bar_desktop.png)
 
-## Status
+## Current Status
 
-Early GNOME 45+ implementation.
+The current implementation targets GNOME Shell 45 and newer. The extension
+metadata declares support through GNOME Shell 50, the latest stable GNOME line as
+of June 2026.
 
 Implemented:
 
-- GNOME Shell 45+ ES module extension entry point.
 - Compact top-bar indicator.
-- Detection for locally installed Claude Code and Codex CLIs.
-- Dropdown with detected Claude and Codex tabs.
-- GNOME-native preferences for default vendor and refresh interval.
-- Manual and scheduled refresh.
-- Shared usage state model for success and error states.
-- Permissions-aware local cache for normalized usage state.
-- Initial live usage fetching from Claude and Codex CLI-managed OAuth credentials.
-- Owner-only permission checks for local credential files before reading or
-  refreshing tokens.
-- GNOME Keyring/Secret Service lookup for vendor OAuth documents when
-  CLI-managed credential files are absent.
-- GNOME Keyring/Secret Service write-back when keyring-loaded OAuth tokens are
-  refreshed.
-- Cache population from normalized live usage results.
-- GJS tests for usage state, cache, and credential behavior.
+- GNOME Shell 45-50 ES module extension entry point.
+- Dropdown tabs for detected Claude Code and Codex CLIs.
+- Manual refresh from the dropdown.
+- Scheduled background refresh.
+- GSettings preferences for default vendor and refresh interval.
+- Live usage loading for Claude and Codex/ChatGPT through vendor-managed OAuth
+  credentials.
+- GNOME Keyring/Secret Service fallback for OAuth documents.
+- Owner-only permission checks for credential and cache files.
+- Local normalized cache for usage responses.
+- Clear states for unauthenticated, rate-limited, offline, malformed response,
+  cache error, and unsupported account cases.
+- GJS tests for state, cache, credentials, parsing, and mocked refresh flows.
 
 Planned:
 
-- GNOME 40-44 legacy extension entry point.
+- GNOME Shell 40-44 legacy extension entry point.
 
-## Credential Security
+## Install For Local Development
 
-The extension does not store API keys or OAuth tokens in GSettings, project
-files, logs, or shell environment variables.
-
-For the current live usage implementation, credentials are read from Claude and
-Codex CLI-managed OAuth files only after verifying that the credential path is a
-regular file and that group/other permission bits are not set. Refreshed tokens
-are written back through a temporary file and forced to owner-only permissions.
-
-If the vendor-managed credential file is absent, the extension looks for an
-OAuth document in GNOME Keyring/Secret Service. Keyring-loaded OAuth documents
-are written back to Keyring after token refresh, not copied into project config
-or GSettings.
-
-The extension's Secret Service schema name is:
-
-```text
-schema: com.miguins.ai_usagebar.Credentials
-```
-
-Lookup matches keyring items by this attribute set, so user-managed entries
-should use the same attributes:
-
-```text
-application: ai-usagebar@miguins.com
-vendor: anthropic | openai
-kind: oauth-document
-```
-
-The item secret is the vendor OAuth document JSON. Treat it as sensitive: do not
-paste it into issue reports, logs, shell history, or project files. If neither a
-safe vendor-managed credential source nor a Secret Service credential is
-available, the extension fails closed with an unauthenticated state.
-
-## GNOME Shell Compatibility
-
-This project targets GNOME Shell 40 and newer.
-
-- GNOME Shell 40-44 require the legacy extension module style.
-- GNOME Shell 45+ require the newer ESM extension style.
-
-Initial development is focused on GNOME Shell 45+ because the first target setup
-is GNOME Shell 49. GNOME 40-44 support will be added after the GNOME 45+
-implementation is working end to end.
-
-## Local Development
-
-Install the extension into your per-user extension directory:
+Link this checkout into your per-user GNOME Shell extension directory:
 
 ```sh
 mkdir -p ~/.local/share/gnome-shell/extensions
 ln -s "$PWD" ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
 ```
 
-Compile the GSettings schema for the symlinked development install:
+Compile the settings schema:
 
 ```sh
 glib-compile-schemas schemas
 ```
 
-Run the local GJS tests:
-
-```sh
-gjs -m tests/run.js
-```
-
-Then enable it:
+Enable the extension:
 
 ```sh
 gnome-extensions enable ai-usagebar@miguins.com
@@ -117,24 +65,122 @@ gnome-extensions enable ai-usagebar@miguins.com
 If GNOME Shell does not list the extension immediately, log out and back in so
 the shell reloads the extension directory.
 
-Build a local extension bundle:
+## Run Checks
+
+Use the Make targets for the normal local workflow:
 
 ```sh
-mkdir -p /tmp/gnome-ai-usagebar-pack
-gnome-extensions pack \
-  --force \
-  --out-dir /tmp/gnome-ai-usagebar-pack \
-  --schema=schemas/org.gnome.shell.extensions.ai-usagebar.gschema.xml \
-  --extra-source=cache.js \
-  --extra-source=credentialStore.js \
-  --extra-source=usageState.js \
-  --extra-source=vendorUsage.js \
-  --extra-source=vendors.js \
-  --extra-source=assets/claude-symbolic.svg \
-  --extra-source=assets/codex-symbolic.svg \
-  .
+make test
+make schema
+make pack
+make check
 ```
+
+What they do:
+
+- `make test` runs the GJS test suite.
+- `make schema` validates the GSettings schema in strict dry-run mode.
+- `make pack` creates a local extension zip in `/tmp/gnome-ai-usagebar-pack`.
+- `make check` runs schema validation, tests, and packaging.
+
+You can still run the commands directly:
+
+```sh
+gjs -m tests/run.js
+glib-compile-schemas --strict --dry-run schemas
+```
+
+## Build A Bundle
+
+```sh
+make pack
+```
+
+The bundle is written to:
+
+```text
+/tmp/gnome-ai-usagebar-pack/ai-usagebar@miguins.com.shell-extension.zip
+```
+
+To use another output directory:
+
+```sh
+make pack PACK_DIR=/tmp/my-extension-pack
+```
+
+## Credentials And Privacy
+
+The extension does not store API keys or OAuth tokens in GSettings, project
+files, logs, or shell environment variables.
+
+Credential lookup order:
+
+1. Vendor-managed OAuth files created by the local CLI.
+2. GNOME Keyring/Secret Service OAuth documents.
+
+The extension reads CLI-managed credential files only when the credential file
+is owner-only and its directory is not writable by group or other users.
+Refreshed credential files are written through private temporary files and
+atomically moved into place.
+
+Secret Service entries should use this schema name:
+
+```text
+com.miguins.ai_usagebar.Credentials
+```
+
+Lookup attributes:
+
+```text
+application: ai-usagebar@miguins.com
+vendor: anthropic | openai
+kind: oauth-document
+```
+
+The item secret is the vendor OAuth document JSON. Treat it as sensitive.
+
+Usage cache files are stored under the user cache directory and are also
+owner-only. Unsafe cache permissions are treated as a cache error rather than
+being read.
+
+## Settings
+
+The extension stores only non-sensitive preferences in GSettings:
+
+- `selected-vendor`: the vendor shown by default.
+- `refresh-interval-seconds`: background refresh interval, from 60 to 3600
+  seconds.
+
+The default refresh interval is 300 seconds.
+
+## Project Layout
+
+- `extension.js`: GNOME Shell 45+ panel indicator and dropdown UI.
+- `prefs.js`: preferences window.
+- `vendorUsage.js`: public vendor refresh dispatcher.
+- `anthropicUsage.js` and `openAIUsage.js`: vendor-specific parsing and refresh
+  flows.
+- `vendorHttp.js`: Soup request handling and HTTP status mapping.
+- `vendorCredentials.js`: credential source lookup and safe credential writes.
+- `vendorFormat.js`: shared usage metric formatting.
+- `fileSecurity.js`: permission checks and private file writes.
+- `cache.js`: normalized local usage cache.
+- `usageState.js`: shared usage state model.
+- `vendors.js`: vendor identifiers and CLI detection.
+- `tests/run.js`: GJS test runner.
+
+## Troubleshooting
+
+If no vendor tab appears, make sure `claude` or `codex` is installed and visible
+from your normal user session.
+
+If the extension reports unsafe credential permissions, fix the credential file
+and its directory so group and other permission bits are not set.
+
+If usage stays cached, press **Refresh** in the dropdown. The extension avoids
+unnecessary network requests when fresh cached data is available.
 
 ## License
 
-MIT. See `LICENSE` once added.
+MIT is intended for this project. Add the `LICENSE` file before distributing a
+release package.

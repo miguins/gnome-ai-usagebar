@@ -1,6 +1,11 @@
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import {
+    OWNER_ONLY_DIR_MODE,
+    validateOwnerOnlyDirectory,
+    validateOwnerOnlyFile,
+    writePrivateJsonFile,
+} from './fileSecurity.js';
 import {isVendor} from './vendors.js';
 import {
     UsageSources,
@@ -23,9 +28,6 @@ export const CacheReadStatus = Object.freeze({
 });
 
 const CACHE_DIR_NAME = 'gnome-ai-usagebar';
-const CACHE_FILE_MODE = 0o600;
-const CACHE_DIR_MODE = 0o700;
-const UNSAFE_PERMISSION_MASK = 0o077;
 
 export class UsageCache {
     constructor({
@@ -129,7 +131,6 @@ export class UsageCache {
         this._prepareCacheDir();
 
         const path = this.getCachePath(vendor);
-        const tmpPath = `${path}.${GLib.uuid_string_random()}.tmp`;
         const payload = {
             schemaVersion: CACHE_SCHEMA_VERSION,
             vendor,
@@ -137,20 +138,7 @@ export class UsageCache {
             state: usageStateToJson(state),
         };
 
-        try {
-            GLib.file_set_contents(tmpPath, `${JSON.stringify(payload, null, 2)}\n`);
-            GLib.chmod(tmpPath, CACHE_FILE_MODE);
-
-            if (GLib.rename(tmpPath, path) !== 0)
-                throw new Error(`Failed to move temporary cache file into place: ${path}`);
-
-            GLib.chmod(path, CACHE_FILE_MODE);
-        } catch (error) {
-            if (GLib.file_test(tmpPath, GLib.FileTest.EXISTS))
-                GLib.unlink(tmpPath);
-
-            throw error;
-        }
+        writePrivateJsonFile(path, payload);
 
         return {path};
     }
@@ -173,7 +161,7 @@ export class UsageCache {
 
     _prepareCacheDir() {
         if (!GLib.file_test(this._cacheDir, GLib.FileTest.EXISTS))
-            GLib.mkdir_with_parents(this._cacheDir, CACHE_DIR_MODE);
+            GLib.mkdir_with_parents(this._cacheDir, OWNER_ONLY_DIR_MODE);
 
         const permissionCheck = _validateOwnerOnlyDirectory(this._cacheDir);
         if (!permissionCheck.ok)
@@ -195,53 +183,11 @@ function _readJsonFile(path) {
 }
 
 function _validateOwnerOnlyFile(path) {
-    const file = Gio.File.new_for_path(path);
-
-    try {
-        const info = file.query_info(
-            'standard::type,unix::mode',
-            Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
-            null
-        );
-
-        if (info.get_file_type() !== Gio.FileType.REGULAR)
-            return {ok: false, message: 'Cache path is not a regular file'};
-
-        return _validateOwnerOnlyMode(path, info.get_attribute_uint32('unix::mode'));
-    } catch (error) {
-        return {ok: false, message: error.message};
-    }
+    return validateOwnerOnlyFile(path, {label: 'cache'});
 }
 
 function _validateOwnerOnlyDirectory(path) {
-    const file = Gio.File.new_for_path(path);
-
-    try {
-        const info = file.query_info(
-            'standard::type,unix::mode',
-            Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
-            null
-        );
-
-        if (info.get_file_type() !== Gio.FileType.DIRECTORY)
-            return {ok: false, message: 'Cache path is not a directory'};
-
-        return _validateOwnerOnlyMode(path, info.get_attribute_uint32('unix::mode'));
-    } catch (error) {
-        return {ok: false, message: error.message};
-    }
-}
-
-function _validateOwnerOnlyMode(path, mode) {
-    const permissionBits = mode & 0o777;
-    if ((permissionBits & UNSAFE_PERMISSION_MASK) !== 0) {
-        return {
-            ok: false,
-            message: `Unsafe cache permissions for ${path}: ${permissionBits.toString(8)}`,
-        };
-    }
-
-    return {ok: true};
+    return validateOwnerOnlyDirectory(path, {label: 'cache'});
 }
 
 function _ageSeconds(cachedAt, now) {
