@@ -19,12 +19,15 @@ Implemented:
 - Dropdown with detected Claude and Codex tabs.
 - GNOME-native preferences for default vendor and refresh interval.
 - Manual and scheduled refresh placeholders.
+- Shared usage state model for success and error states.
+- Permissions-aware local cache for normalized usage state.
+- GJS tests for usage state and cache behavior.
 
 Planned:
 
 - GNOME Keyring credential lookup.
 - Vendor usage fetching for Anthropic Claude and OpenAI Codex/ChatGPT.
-- Local response cache.
+- Cache population from live vendor responses.
 - GNOME 40-44 legacy extension entry point.
 
 ## GNOME Shell Compatibility
@@ -53,6 +56,12 @@ Compile the GSettings schema for the symlinked development install:
 glib-compile-schemas schemas
 ```
 
+Run the local GJS tests:
+
+```sh
+gjs -m tests/run.js
+```
+
 Then enable it:
 
 ```sh
@@ -70,6 +79,8 @@ gnome-extensions pack \
   --force \
   --out-dir /tmp/gnome-ai-usagebar-pack \
   --schema=schemas/org.gnome.shell.extensions.ai-usagebar.gschema.xml \
+  --extra-source=cache.js \
+  --extra-source=usageState.js \
   --extra-source=vendors.js \
   --extra-source=assets/claude-symbolic.svg \
   --extra-source=assets/codex-symbolic.svg \

@@ -9,6 +9,14 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
+import {CacheReadStatus, UsageCache} from './cache.js';
+import {
+    UsageSources,
+    UsageStatus,
+    createCacheErrorState,
+    createNotConfiguredState,
+    createUsageState,
+} from './usageState.js';
 import {
     Vendors,
     VendorIds,
@@ -24,12 +32,6 @@ const VendorIconFiles = Object.freeze({
     [Vendors.OPENAI]: 'assets/codex-symbolic.svg',
 });
 
-const InitialVendorState = Object.freeze({
-    status: 'Not configured',
-    summary: 'Credential lookup and usage fetching are planned for the next implementation step.',
-    updatedAt: null,
-});
-
 const AIUsageIndicator = GObject.registerClass(
 class AIUsageIndicator extends PanelMenu.Button {
     _init(settings) {
@@ -41,8 +43,11 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._installedVendors = detectInstalledVendors();
         this._selectedVendor = this._resolveSelectedVendor(this._getSelectedVendorSetting());
         this._refreshSourceId = 0;
+        this._usageCache = new UsageCache({
+            ttlSeconds: this._getRefreshIntervalSeconds(),
+        });
         this._vendorState = Object.fromEntries(
-            VendorIds.map(vendor => [vendor, {...InitialVendorState}])
+            VendorIds.map(vendor => [vendor, this._createInitialVendorState()])
         );
 
         this._buildPanelButton();
@@ -253,11 +258,10 @@ class AIUsageIndicator extends PanelMenu.Button {
         if (!this._selectedVendor)
             return;
 
-        const state = this._vendorState[this._selectedVendor];
-        state.status = _('Not configured');
-        state.summary = _('Credential lookup and usage fetching are not implemented yet.');
-        state.updatedAt = GLib.DateTime.new_now_local();
+        if (this._renderCachedSelectedVendor())
+            return;
 
+        this._vendorState[this._selectedVendor] = this._createRefreshPlaceholderState();
         this._render();
     }
 
@@ -267,8 +271,8 @@ class AIUsageIndicator extends PanelMenu.Button {
             this._refreshSourceId = 0;
         }
 
-        const intervalSeconds = this._settings.get_uint('refresh-interval-seconds') ||
-            DEFAULT_REFRESH_INTERVAL_SECONDS;
+        const intervalSeconds = this._getRefreshIntervalSeconds();
+        this._usageCache.ttlSeconds = intervalSeconds;
 
         this._refreshSourceId = GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT,
@@ -305,12 +309,105 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         const label = VendorLabels[this._selectedVendor];
         const state = this._vendorState[this._selectedVendor];
+        const statusLabel = this._getUsageStatusLabel(state);
 
         this._panelIcon.gicon = this._getVendorIcon(this._selectedVendor);
-        this._panelLabel.set_text(`${label}: ${state.status}`);
-        this._statusLabel.set_text(state.status);
+        this._panelLabel.set_text(`${label}: ${statusLabel}`);
+        this._statusLabel.set_text(statusLabel);
         this._summaryLabel.set_text(state.summary);
         this._updatedAtLabel.set_text(this._formatUpdatedAt(state.updatedAt));
+    }
+
+    _renderCachedSelectedVendor() {
+        const vendor = this._selectedVendor;
+        const result = this._usageCache.read(vendor);
+
+        switch (result.status) {
+        case CacheReadStatus.HIT:
+            this._vendorState[vendor] = result.state;
+            this._render();
+            return true;
+        case CacheReadStatus.STALE:
+            this._vendorState[vendor] = createUsageState({
+                status: UsageStatus.STALE,
+                summary: result.state.summary,
+                updatedAt: result.state.updatedAt,
+                source: UsageSources.CACHE,
+            });
+            this._render();
+            return true;
+        case CacheReadStatus.INVALID_PERMISSIONS:
+            this._vendorState[vendor] = createCacheErrorState(
+                _('Cache file permissions are unsafe; refusing to read cached usage data.'),
+                GLib.DateTime.new_now_local()
+            );
+            this._render();
+            return true;
+        case CacheReadStatus.MALFORMED:
+            this._vendorState[vendor] = createUsageState({
+                status: UsageStatus.MALFORMED_RESPONSE,
+                summary: _('Cached usage data is malformed; refresh cannot safely use it.'),
+                updatedAt: GLib.DateTime.new_now_local(),
+                source: UsageSources.CACHE,
+            });
+            this._render();
+            return true;
+        case CacheReadStatus.ERROR:
+            this._vendorState[vendor] = createCacheErrorState(
+                _('Cached usage data could not be read safely.'),
+                GLib.DateTime.new_now_local()
+            );
+            this._render();
+            return true;
+        case CacheReadStatus.MISS:
+        default:
+            return false;
+        }
+    }
+
+    _createInitialVendorState() {
+        return createNotConfiguredState(
+            _('Credential lookup and usage fetching are planned for the next implementation step.')
+        );
+    }
+
+    _createRefreshPlaceholderState() {
+        return createUsageState({
+            status: UsageStatus.NOT_CONFIGURED,
+            summary: _('Credential lookup and usage fetching are not implemented yet.'),
+            updatedAt: GLib.DateTime.new_now_local(),
+            source: UsageSources.PLACEHOLDER,
+        });
+    }
+
+    _getUsageStatusLabel(state) {
+        switch (state.status) {
+        case UsageStatus.NOT_CONFIGURED:
+            return _('Not configured');
+        case UsageStatus.READY:
+            return _('OK');
+        case UsageStatus.STALE:
+            return _('Stale');
+        case UsageStatus.UNAUTHENTICATED:
+            return _('Unauthenticated');
+        case UsageStatus.RATE_LIMITED:
+            return _('Rate limited');
+        case UsageStatus.OFFLINE:
+            return _('Offline');
+        case UsageStatus.UNSUPPORTED_ACCOUNT:
+            return _('Unsupported account');
+        case UsageStatus.MALFORMED_RESPONSE:
+            return _('Malformed response');
+        case UsageStatus.CACHE_ERROR:
+            return _('Cache error');
+        default:
+            return state.statusLabel ?? _('Unknown');
+        }
+    }
+
+    _getRefreshIntervalSeconds() {
+        return this._settings.get_uint('refresh-interval-seconds') ||
+            DEFAULT_REFRESH_INTERVAL_SECONDS;
     }
 
     _formatUpdatedAt(updatedAt) {
