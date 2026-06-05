@@ -36,6 +36,15 @@ const METRIC_ROW_SPACING = 10;
 const PROGRESS_TRACK_WIDTH = 300;
 const RELATIVE_TIME_REFRESH_SECONDS = 60;
 const REFRESH_CONTENT_SPACING = 8;
+const BUILT_IN_THEME_STYLE_CLASS = 'ai-usagebar-built-in-theme';
+const FOLLOW_SYSTEM_THEME_STYLE_CLASS = 'ai-usagebar-follow-system-theme';
+const TAB_BUTTON_STYLE_CLASS = 'ai-usagebar-tab';
+const TAB_BUTTON_SELECTED_STYLE_CLASS = `${TAB_BUTTON_STYLE_CLASS} ai-usagebar-tab-selected`;
+const THEMED_TAB_BUTTON_STYLE_CLASS = `button ${TAB_BUTTON_STYLE_CLASS}`;
+const THEMED_TAB_BUTTON_SELECTED_STYLE_CLASS =
+    `${THEMED_TAB_BUTTON_STYLE_CLASS} ai-usagebar-tab-selected`;
+const REFRESH_BUTTON_STYLE_CLASS = 'ai-usagebar-refresh-button';
+const THEMED_REFRESH_BUTTON_STYLE_CLASS = `button ${REFRESH_BUTTON_STYLE_CLASS}`;
 const RESET_MONTH_NAMES = Object.freeze([
     'Jan',
     'Feb',
@@ -84,6 +93,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._buildPanelButton();
         this._buildMenu();
         this._applyDropdownOpacity();
+        this._applyThemePreference();
         this._bindSettings();
         this._selectVendor(this._selectedVendor, {persist: false});
         this._scheduleRefresh();
@@ -168,7 +178,7 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         for (const vendor of this._enabledVendors) {
             const button = new St.Button({
-                style_class: 'ai-usagebar-tab',
+                style_class: this._getTabButtonStyleClass(vendor === this._selectedVendor),
                 can_focus: true,
                 x_expand: true,
             });
@@ -271,11 +281,12 @@ class AIUsageIndicator extends PanelMenu.Button {
             x_expand: true,
         });
         const button = new St.Button({
-            style_class: 'ai-usagebar-refresh-button',
+            style_class: this._getRefreshButtonStyleClass(),
             can_focus: true,
             track_hover: true,
             x_expand: true,
         });
+        this._refreshButton = button;
         const content = new St.BoxLayout({
             style_class: 'ai-usagebar-refresh-content',
             x_expand: true,
@@ -323,6 +334,12 @@ class AIUsageIndicator extends PanelMenu.Button {
             })
         );
 
+        this._settingsSignals.push(
+            this._settings.connect('changed::follow-system-theme', () => {
+                this._applyThemePreference();
+            })
+        );
+
         for (const vendor of VendorIds) {
             this._settingsSignals.push(
                 this._settings.connect(`changed::${VendorSettings[vendor].enabled}`, () => {
@@ -361,9 +378,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         }
 
         for (const [tabVendor, button] of this._tabButtons.entries()) {
-            button.set_style_class_name(tabVendor === vendor
-                ? 'ai-usagebar-tab ai-usagebar-tab-selected'
-                : 'ai-usagebar-tab');
+            button.set_style_class_name(this._getTabButtonStyleClass(tabVendor === vendor));
         }
 
         this._render();
@@ -515,6 +530,58 @@ class AIUsageIndicator extends PanelMenu.Button {
         } finally {
             this._applyingDropdownOpacity = false;
         }
+    }
+
+    _applyThemePreference() {
+        const followSystemTheme = this._getFollowSystemTheme();
+        this._setStyleClassPresence(this, BUILT_IN_THEME_STYLE_CLASS, !followSystemTheme);
+        this._setStyleClassPresence(this, FOLLOW_SYSTEM_THEME_STYLE_CLASS, followSystemTheme);
+        this._setStyleClassPresence(
+            this.menu.actor,
+            BUILT_IN_THEME_STYLE_CLASS,
+            !followSystemTheme
+        );
+        this._setStyleClassPresence(
+            this.menu.actor,
+            FOLLOW_SYSTEM_THEME_STYLE_CLASS,
+            followSystemTheme
+        );
+
+        for (const [vendor, button] of this._tabButtons.entries())
+            button.set_style_class_name(
+                this._getTabButtonStyleClass(vendor === this._selectedVendor)
+            );
+
+        if (this._refreshButton)
+            this._refreshButton.set_style_class_name(this._getRefreshButtonStyleClass());
+    }
+
+    _setStyleClassPresence(actor, styleClass, enabled) {
+        const hasStyleClass = actor.has_style_class_name(styleClass);
+
+        if (enabled && !hasStyleClass)
+            actor.add_style_class_name(styleClass);
+        else if (!enabled && hasStyleClass)
+            actor.remove_style_class_name(styleClass);
+    }
+
+    _getTabButtonStyleClass(selected) {
+        if (this._getFollowSystemTheme())
+            return selected
+                ? THEMED_TAB_BUTTON_SELECTED_STYLE_CLASS
+                : THEMED_TAB_BUTTON_STYLE_CLASS;
+
+        return selected ? TAB_BUTTON_SELECTED_STYLE_CLASS : TAB_BUTTON_STYLE_CLASS;
+    }
+
+    _getRefreshButtonStyleClass() {
+        return this._getFollowSystemTheme()
+            ? THEMED_REFRESH_BUTTON_STYLE_CLASS
+            : REFRESH_BUTTON_STYLE_CLASS;
+    }
+
+    _getFollowSystemTheme() {
+        return this._settings.get_boolean('follow-system-theme');
     }
 
     _handleEnabledVendorsChanged() {

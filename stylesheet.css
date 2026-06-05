@@ -1,5 +1,4 @@
 .ai-usagebar-panel-label {
-    color: rgba(255, 255, 255, 0.96);
     font-weight: 700;
     min-width: 30px;
 }
@@ -16,7 +15,6 @@
 .ai-usagebar-overview-subtitle,
 .ai-usagebar-footer,
 .ai-usagebar-metric-detail {
-    color: rgba(255, 255, 255, 0.62);
     font-size: 0.82em;
 }
 
@@ -27,27 +25,6 @@
     padding: 3px 8px;
 }
 
-.ai-usagebar-status-ready {
-    background-color: rgba(46, 194, 126, 0.18);
-    color: rgb(87, 227, 137);
-}
-
-.ai-usagebar-status-stale,
-.ai-usagebar-status-warning {
-    background-color: rgba(245, 194, 17, 0.18);
-    color: rgb(248, 228, 92);
-}
-
-.ai-usagebar-status-error {
-    background-color: rgba(237, 51, 59, 0.18);
-    color: rgb(255, 123, 114);
-}
-
-.ai-usagebar-status-neutral {
-    background-color: rgba(255, 255, 255, 0.10);
-    color: rgba(255, 255, 255, 0.78);
-}
-
 .ai-usagebar-tabs {
     padding: 2px 0;
 }
@@ -56,10 +33,6 @@
     border-radius: 6px;
     padding: 6px 10px;
     text-align: center;
-}
-
-.ai-usagebar-tab-selected {
-    background-color: rgba(53, 132, 228, 0.28);
 }
 
 .ai-usagebar-tab-empty {
@@ -80,25 +53,12 @@
 }
 
 .ai-usagebar-progress-track {
-    background-color: rgba(255, 255, 255, 0.16);
     border-radius: 3px;
     min-width: 300px;
 }
 
 .ai-usagebar-progress-fill {
     border-radius: 3px;
-}
-
-.ai-usagebar-progress-ok {
-    background-color: rgb(87, 227, 137);
-}
-
-.ai-usagebar-progress-warning {
-    background-color: rgb(248, 228, 92);
-}
-
-.ai-usagebar-progress-critical {
-    background-color: rgb(255, 123, 114);
 }
 
 .ai-usagebar-message {
@@ -118,7 +78,76 @@
     padding: 7px 10px;
 }
 
-.ai-usagebar-refresh-button:hover,
-.ai-usagebar-refresh-button:focus {
+.ai-usagebar-built-in-theme .ai-usagebar-panel-label {
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-overview-subtitle,
+.ai-usagebar-built-in-theme .ai-usagebar-footer,
+.ai-usagebar-built-in-theme .ai-usagebar-metric-detail {
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-status-ready {
+    background-color: rgba(46, 194, 126, 0.18);
+    color: rgb(87, 227, 137);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-status-stale,
+.ai-usagebar-built-in-theme .ai-usagebar-status-warning {
+    background-color: rgba(245, 194, 17, 0.18);
+    color: rgb(248, 228, 92);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-status-error {
+    background-color: rgba(237, 51, 59, 0.18);
+    color: rgb(255, 123, 114);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-status-neutral {
     background-color: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected {
+    background-color: rgba(53, 132, 228, 0.28);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-progress-track {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-progress-ok {
+    background-color: rgb(87, 227, 137);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-progress-warning {
+    background-color: rgb(248, 228, 92);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-progress-critical {
+    background-color: rgb(255, 123, 114);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:hover,
+.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-status-badge {
+    background-color: st-transparentize(-st-accent-color, 0.84);
+    border: 1px solid -st-accent-color;
+    color: -st-accent-color;
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-tab-selected {
+    font-weight: 700;
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-progress-track {
+    background-color: st-transparentize(-st-accent-color, 0.84);
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-progress-fill {
+    background-color: -st-accent-color;
 }

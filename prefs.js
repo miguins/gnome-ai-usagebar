@@ -34,6 +34,7 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         group.add(this._buildVendorRow(settings));
         group.add(this._buildRefreshIntervalRow(settings));
         group.add(this._buildDropdownOpacityRow(settings));
+        group.add(this._buildFollowSystemThemeRow(settings));
         page.add(group);
 
         for (const vendor of VendorIds)
@@ -149,6 +150,27 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
             const value = settings.get_uint('dropdown-opacity-percent');
             if (Math.round(row.value) !== value)
                 row.value = value;
+        });
+
+        return row;
+    }
+
+    _buildFollowSystemThemeRow(settings) {
+        const row = new Adw.SwitchRow({
+            title: _('Follow System Theme'),
+            subtitle: _('Use GNOME Shell theme colors for badges, progress, and controls.'),
+            active: settings.get_boolean('follow-system-theme'),
+        });
+
+        row.connect('notify::active', () => {
+            if (settings.get_boolean('follow-system-theme') !== row.active)
+                settings.set_boolean('follow-system-theme', row.active);
+        });
+
+        settings.connect('changed::follow-system-theme', () => {
+            const active = settings.get_boolean('follow-system-theme');
+            if (row.active !== active)
+                row.active = active;
         });
 
         return row;

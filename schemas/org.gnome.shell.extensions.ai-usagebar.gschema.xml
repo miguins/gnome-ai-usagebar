@@ -18,6 +18,11 @@
       <summary>Dropdown opacity</summary>
       <description>The opacity percentage used for the extension dropdown window.</description>
     </key>
+    <key name="follow-system-theme" type="b">
+      <default>false</default>
+      <summary>Follow system theme</summary>
+      <description>Whether the extension should use GNOME Shell theme colors instead of its built-in usage colors.</description>
+    </key>
     <key name="anthropic-enabled" type="b">
       <default>true</default>
       <summary>Enable Claude</summary>

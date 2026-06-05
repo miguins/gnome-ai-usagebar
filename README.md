@@ -206,6 +206,9 @@ The extension stores only non-sensitive preferences in GSettings:
   seconds.
 - `dropdown-opacity-percent`: extension dropdown opacity, from 35 to 100
   percent.
+- `follow-system-theme`: whether badges, progress bars, and controls should use
+  GNOME Shell theme colors instead of the built-in usage colors. Defaults to
+  `false`.
 
 The default refresh interval is 300 seconds.
 
