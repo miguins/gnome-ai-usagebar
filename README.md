@@ -65,9 +65,6 @@ Enable the extension:
 gnome-extensions enable ai-usagebar@miguins.com
 ```
 
-If GNOME Shell does not list the extension immediately, log out and back in so
-the shell reloads the extension directory.
-
 ## Manual Install
 
 A bundler is not required for a personal install. GNOME Shell can load an
@@ -104,8 +101,14 @@ gnome-extensions enable ai-usagebar@miguins.com
 
 If you are replacing an existing copy, disable the extension first, replace the
 `ai-usagebar@miguins.com` directory with the new source, and then enable the
-extension. Log out and back in if GNOME Shell does not pick up the new files
-immediately.
+extension.
+
+## Reload GNOME Shell
+
+Reload GNOME Shell if the extension does not appear after enabling it or if
+updated files are not picked up after replacing an existing install. On Wayland,
+log out and log back in. On X11, you can reload GNOME Shell without logging out
+by pressing `Alt+F2`, entering `r`, and pressing `Enter`.
 
 ## Run Checks
 
