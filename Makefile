@@ -17,9 +17,12 @@ PACK_SOURCES := \
 	assets/claude-symbolic.svg \
 	assets/codex-symbolic.svg
 
-.PHONY: check clean pack schema test
+.PHONY: check clean pack schema syntax test
 
-check: schema test pack
+check: syntax schema test pack
+
+syntax:
+	node --check extension.js
 
 schema:
 	glib-compile-schemas --strict --dry-run schemas

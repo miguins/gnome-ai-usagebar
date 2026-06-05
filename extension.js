@@ -68,7 +68,7 @@ const VendorIconFiles = Object.freeze({
 const AIUsageIndicator = GObject.registerClass(
 class AIUsageIndicator extends PanelMenu.Button {
     _init(settings) {
-        super._init(0.0, _('AI UsageBar'));
+        super._init(0.5, _('AI UsageBar'));
 
         this._settings = settings;
         this._settingsSignals = [];
@@ -159,6 +159,12 @@ class AIUsageIndicator extends PanelMenu.Button {
                     this._applyDropdownOpacity();
             })
         );
+        this._menuActorSignals.push(
+            this.menu.actor.connect(
+                'captured-event',
+                this._handleMenuCapturedEvent.bind(this)
+            )
+        );
     }
 
     _rebuildTabs() {
@@ -179,7 +185,9 @@ class AIUsageIndicator extends PanelMenu.Button {
         for (const vendor of this._enabledVendors) {
             const button = new St.Button({
                 style_class: this._getTabButtonStyleClass(vendor === this._selectedVendor),
+                reactive: true,
                 can_focus: true,
+                track_hover: true,
                 x_expand: true,
             });
             button.set_child(this._buildVendorLabel(vendor, 'ai-usagebar-tab-icon'));
@@ -282,11 +290,13 @@ class AIUsageIndicator extends PanelMenu.Button {
         });
         const button = new St.Button({
             style_class: this._getRefreshButtonStyleClass(),
+            reactive: true,
             can_focus: true,
             track_hover: true,
             x_expand: true,
         });
         this._refreshButton = button;
+
         const content = new St.BoxLayout({
             style_class: 'ai-usagebar-refresh-content',
             x_expand: true,
@@ -307,6 +317,31 @@ class AIUsageIndicator extends PanelMenu.Button {
         box.add_child(button);
         item.add_child(box);
         this.menu.addMenuItem(item);
+    }
+
+    _handleMenuCapturedEvent(_actor, event) {
+        const eventType = event.type();
+        if (eventType !== Clutter.EventType.BUTTON_RELEASE &&
+            eventType !== Clutter.EventType.TOUCH_END)
+            return Clutter.EVENT_PROPAGATE;
+
+        const targetActor = global.stage.get_event_actor(event);
+        if (!targetActor)
+            return Clutter.EVENT_PROPAGATE;
+
+        for (const [vendor, button] of this._tabButtons.entries()) {
+            if (button.contains(targetActor)) {
+                this._selectVendor(vendor, {refresh: true});
+                return Clutter.EVENT_STOP;
+            }
+        }
+
+        if (this._refreshButton?.contains(targetActor)) {
+            this._refreshSelectedVendor({force: true});
+            return Clutter.EVENT_STOP;
+        }
+
+        return Clutter.EVENT_PROPAGATE;
     }
 
     _bindSettings() {
@@ -515,21 +550,11 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _applyDropdownOpacity() {
-        if (this._applyingDropdownOpacity)
+        if (!this.menu?.box)
             return;
 
         const percent = this._getDropdownOpacityPercent();
-        const opacity = Math.round((percent / 100) * 255);
-
-        if (this.menu.actor.opacity === opacity)
-            return;
-
-        this._applyingDropdownOpacity = true;
-        try {
-            this.menu.actor.opacity = opacity;
-        } finally {
-            this._applyingDropdownOpacity = false;
-        }
+        this.menu.box.opacity = Math.round((percent / 100) * 255);
     }
 
     _applyThemePreference() {
