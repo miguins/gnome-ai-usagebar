@@ -25,6 +25,7 @@ import {
     isVendor,
 } from './vendors.js';
 import {refreshVendorUsage} from './vendorUsage.js';
+import {formatLocalTime} from './vendorFormat.js';
 
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
 const METRIC_CONTENT_SPACING = 4;
@@ -851,7 +852,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         if (!updatedAt)
             return _('Never');
 
-        return updatedAt.format('%H:%M:%S') ?? _('Unknown');
+        return formatLocalTime(updatedAt) ?? _('Unknown');
     }
 
     destroy() {

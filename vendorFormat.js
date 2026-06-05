@@ -23,6 +23,14 @@ const MONTH_NAMES = Object.freeze([
     'Dec',
 ]);
 
+export function formatLocalTime(dateTime, format = '%H:%M:%S') {
+    if (!dateTime || typeof dateTime.to_unix !== 'function')
+        return null;
+
+    const localDateTime = GLib.DateTime.new_from_unix_local(dateTime.to_unix());
+    return localDateTime?.format(format) ?? null;
+}
+
 export function assertObject(value, _label, vendor = null) {
     if (!value || typeof value !== 'object' || Array.isArray(value))
         throwMalformed(vendor);
