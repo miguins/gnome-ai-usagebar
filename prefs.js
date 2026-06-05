@@ -51,15 +51,9 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         let vendorIds = [];
         let syncing = false;
 
-        const sync = () => {
+        const syncSelection = () => {
             syncing = true;
             try {
-                vendorIds = getEnabledVendors(settings);
-                const vendorLabels = vendorIds.length > 0
-                    ? vendorIds.map(vendor => VendorLabels[vendor])
-                    : [_('No providers enabled')];
-
-                row.model = Gtk.StringList.new(vendorLabels);
                 row.sensitive = vendorIds.length > 0;
 
                 const selectedVendor = settings.get_string('selected-vendor');
@@ -74,6 +68,16 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
             }
         };
 
+        const syncModel = () => {
+            vendorIds = getEnabledVendors(settings);
+            const vendorLabels = vendorIds.length > 0
+                ? vendorIds.map(vendor => VendorLabels[vendor])
+                : [_('No providers enabled')];
+
+            row.model = Gtk.StringList.new(vendorLabels);
+            syncSelection();
+        };
+
         row.connect('notify::selected', () => {
             if (syncing || vendorIds.length === 0)
                 return;
@@ -83,11 +87,11 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
                 settings.set_string('selected-vendor', vendor);
         });
 
-        settings.connect('changed::selected-vendor', sync);
+        settings.connect('changed::selected-vendor', syncSelection);
         for (const vendor of VendorIds)
-            settings.connect(`changed::${VendorSettings[vendor].enabled}`, sync);
+            settings.connect(`changed::${VendorSettings[vendor].enabled}`, syncModel);
 
-        sync();
+        syncModel();
         return row;
     }
 
