@@ -5,7 +5,10 @@ import {
     UsageStatus,
     createUsageState,
 } from './usageState.js';
-import {Vendors} from './vendors.js';
+import {
+    VendorCredentialDefaults,
+    Vendors,
+} from './vendors.js';
 import {
     assertCredentialObject,
     needsRefresh,
@@ -24,7 +27,6 @@ import {
 } from './vendorFormat.js';
 
 const OpenAI = Object.freeze({
-    credentialsRelativePath: '.codex/auth.json',
     usageUrl: 'https://chatgpt.com/backend-api/wham/usage',
     tokenUrl: 'https://auth.openai.com/oauth/token',
     clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
@@ -37,11 +39,13 @@ export async function refreshOpenAIUsage({
     requestJson,
     now,
     credentialBaseDir,
+    credentialPath = null,
     secretCredentialStore,
 }) {
     const credentials = await readCredentialSource({
         vendor: Vendors.OPENAI,
-        relativePath: OpenAI.credentialsRelativePath,
+        relativePath: VendorCredentialDefaults[Vendors.OPENAI],
+        configuredPath: credentialPath,
         missingSummary: 'Codex credentials are missing. Run `codex login` to sign in, or add a GNOME Keyring OAuth credential.',
         unreadableSummary: 'Codex credentials are unreadable. Run `codex login` to sign in again.',
         credentialBaseDir,

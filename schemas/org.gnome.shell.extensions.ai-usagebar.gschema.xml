@@ -12,5 +12,31 @@
       <summary>Refresh interval</summary>
       <description>How often usage should refresh in the background, in seconds.</description>
     </key>
+    <key name="dropdown-opacity-percent" type="u">
+      <default>100</default>
+      <range min="35" max="100"/>
+      <summary>Dropdown opacity</summary>
+      <description>The opacity percentage used for the extension dropdown window.</description>
+    </key>
+    <key name="anthropic-enabled" type="b">
+      <default>true</default>
+      <summary>Enable Claude</summary>
+      <description>Whether Claude should appear in the panel dropdown.</description>
+    </key>
+    <key name="anthropic-credentials-path" type="s">
+      <default>''</default>
+      <summary>Claude credentials path</summary>
+      <description>Optional path to Claude OAuth credentials. Leave empty to use the default vendor-managed path.</description>
+    </key>
+    <key name="openai-enabled" type="b">
+      <default>true</default>
+      <summary>Enable Codex</summary>
+      <description>Whether Codex should appear in the panel dropdown.</description>
+    </key>
+    <key name="openai-codex-auth-path" type="s">
+      <default>''</default>
+      <summary>Codex auth path</summary>
+      <description>Optional path to Codex OAuth credentials. Leave empty to use the default vendor-managed path.</description>
+    </key>
   </schema>
 </schemalist>

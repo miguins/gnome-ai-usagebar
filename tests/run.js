@@ -15,6 +15,10 @@ import {
     SecretCredentialStore,
     secretCredentialAttributes,
 } from '../credentialStore.js';
+import {
+    credentialPath,
+    expandCredentialPath,
+} from '../vendorCredentials.js';
 import {Vendors} from '../vendors.js';
 import {
     anthropicPlanLabel,
@@ -445,6 +449,39 @@ testAsync('secret credential store rejects malformed keyring documents', async (
     );
 });
 
+test('credential paths support default, absolute, and home-relative locations', () => {
+    const homeDir = makeTempDir();
+
+    try {
+        assertEqual(
+            credentialPath('.codex/auth.json', homeDir),
+            GLib.build_filenamev([homeDir, '.codex', 'auth.json'])
+        );
+        assertEqual(
+            credentialPath(
+                '.codex/auth.json',
+                homeDir,
+                GLib.build_filenamev([homeDir, 'custom', 'auth.json'])
+            ),
+            GLib.build_filenamev([homeDir, 'custom', 'auth.json'])
+        );
+        assertEqual(
+            expandCredentialPath('~/custom/auth.json', homeDir),
+            GLib.build_filenamev([homeDir, 'custom', 'auth.json'])
+        );
+        assertEqual(
+            expandCredentialPath('custom/auth.json', homeDir),
+            GLib.build_filenamev([homeDir, 'custom', 'auth.json'])
+        );
+        assertEqual(
+            expandCredentialPath('/tmp/codex-auth.json', homeDir),
+            '/tmp/codex-auth.json'
+        );
+    } finally {
+        removeTree(homeDir);
+    }
+});
+
 testAsync('refresh looks up keyring when vendor credential file is missing', async () => {
     const credentialBaseDir = makeTempDir();
     const lookups = [];
@@ -470,6 +507,52 @@ testAsync('refresh looks up keyring when vendor credential file is missing', asy
             'Codex credentials are missing. Run `codex login` to sign in, or add a GNOME Keyring OAuth credential.'
         );
     } finally {
+        removeTree(credentialBaseDir);
+    }
+});
+
+testAsync('refresh loads openai usage from configured credential path', async () => {
+    const credentialBaseDir = makeTempDir();
+    const credentialDir = makeTempDir();
+    const configuredPath = GLib.build_filenamev([credentialDir, 'codex-auth.json']);
+    const now = GLib.DateTime.new_from_iso8601('2026-06-04T12:00:00Z', null);
+    let lookupCount = 0;
+    const store = {
+        lookupVendorCredentialDocument: async () => {
+            lookupCount += 1;
+            return null;
+        },
+    };
+
+    try {
+        GLib.file_set_contents(configuredPath, JSON.stringify({
+            tokens: {
+                access_token: 'redacted-access',
+                refresh_token: 'redacted-refresh',
+                id_token: fakeJwt({exp: 1780597324}),
+            },
+        }));
+        GLib.chmod(configuredPath, 0o600);
+
+        const state = await refreshVendorUsage(Vendors.OPENAI, {
+            credentialBaseDir,
+            credentialPath: configuredPath,
+            secretCredentialStore: store,
+            session: {},
+            now,
+            requestJson: async () => ({
+                rate_limit: {
+                    primary_window: {used_percent: 2},
+                    secondary_window: {used_percent: 11},
+                },
+            }),
+        });
+
+        assertEqual(state.status, UsageStatus.READY);
+        assertEqual(state.plan, 'ChatGPT Unknown');
+        assertEqual(lookupCount, 0);
+    } finally {
+        removeTree(credentialDir);
         removeTree(credentialBaseDir);
     }
 });

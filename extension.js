@@ -21,13 +21,16 @@ import {
     Vendors,
     VendorIds,
     VendorLabels,
-    detectInstalledVendors,
+    VendorSettings,
+    getConfiguredCredentialPath,
+    getEnabledVendors,
     isVendor,
 } from './vendors.js';
 import {refreshVendorUsage} from './vendorUsage.js';
 import {formatLocalTime} from './vendorFormat.js';
 
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
+const DEFAULT_DROPDOWN_OPACITY_PERCENT = 100;
 const METRIC_CONTENT_SPACING = 4;
 const METRIC_ROW_SPACING = 10;
 const PROGRESS_TRACK_WIDTH = 300;
@@ -60,10 +63,13 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         this._settings = settings;
         this._settingsSignals = [];
+        this._menuSignals = [];
+        this._menuActorSignals = [];
         this._extensionDir = this._getExtensionDir();
-        this._installedVendors = detectInstalledVendors();
+        this._enabledVendors = this._getEnabledVendors();
         this._selectedVendor = this._resolveSelectedVendor(this._getSelectedVendorSetting());
         this._ignoreSelectedVendorSetting = false;
+        this._applyingDropdownOpacity = false;
         this._refreshSourceId = 0;
         this._relativeTimeSourceId = 0;
         this._refreshRequestId = 0;
@@ -77,6 +83,7 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         this._buildPanelButton();
         this._buildMenu();
+        this._applyDropdownOpacity();
         this._bindSettings();
         this._selectVendor(this._selectedVendor, {persist: false});
         this._scheduleRefresh();
@@ -129,6 +136,19 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._buildRefreshRow();
+
+        this._menuSignals.push(
+            this.menu.connect('open-state-changed', (_menu, isOpen) => {
+                if (isOpen)
+                    this._applyDropdownOpacity();
+            })
+        );
+        this._menuActorSignals.push(
+            this.menu.actor.connect('notify::opacity', () => {
+                if (this.menu.isOpen)
+                    this._applyDropdownOpacity();
+            })
+        );
     }
 
     _rebuildTabs() {
@@ -137,16 +157,16 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         this._tabButtons.clear();
 
-        if (this._installedVendors.length === 0) {
+        if (this._enabledVendors.length === 0) {
             this._tabBox.add_child(new St.Label({
-                text: _('No supported tools detected'),
+                text: _('No AI providers enabled'),
                 style_class: 'ai-usagebar-tab-empty',
                 x_expand: true,
             }));
             return;
         }
 
-        for (const vendor of this._installedVendors) {
+        for (const vendor of this._enabledVendors) {
             const button = new St.Button({
                 style_class: 'ai-usagebar-tab',
                 can_focus: true,
@@ -285,7 +305,7 @@ class AIUsageIndicator extends PanelMenu.Button {
                     return;
 
                 this._selectVendor(this._getSelectedVendorSetting(), {
-                    persist: false,
+                    persist: true,
                     refresh: true,
                 });
             })
@@ -296,6 +316,26 @@ class AIUsageIndicator extends PanelMenu.Button {
                 this._scheduleRefresh();
             })
         );
+
+        this._settingsSignals.push(
+            this._settings.connect('changed::dropdown-opacity-percent', () => {
+                this._applyDropdownOpacity();
+            })
+        );
+
+        for (const vendor of VendorIds) {
+            this._settingsSignals.push(
+                this._settings.connect(`changed::${VendorSettings[vendor].enabled}`, () => {
+                    this._handleEnabledVendorsChanged();
+                })
+            );
+            this._settingsSignals.push(
+                this._settings.connect(
+                    `changed::${VendorSettings[vendor].credentialPath}`,
+                    () => this._handleCredentialPathChanged(vendor)
+                )
+            );
+        }
     }
 
     _selectVendor(vendor, {
@@ -382,10 +422,10 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _resolveSelectedVendor(vendor) {
-        if (isVendor(vendor) && this._installedVendors.includes(vendor))
+        if (isVendor(vendor) && this._enabledVendors.includes(vendor))
             return vendor;
 
-        return this._installedVendors[0] ?? null;
+        return this._enabledVendors[0] ?? null;
     }
 
     _getSelectedVendorSetting() {
@@ -394,9 +434,9 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _refreshSelectedVendor({force = false} = {}) {
-        this._detectInstalledVendors();
+        this._syncEnabledVendors();
         this._selectVendor(this._selectedVendor ?? this._getSelectedVendorSetting(), {
-            persist: false,
+            persist: true,
         });
 
         if (!this._selectedVendor)
@@ -410,7 +450,9 @@ class AIUsageIndicator extends PanelMenu.Button {
 
     async _refreshVendorUsage(vendor) {
         const requestId = ++this._refreshRequestId;
-        const state = await refreshVendorUsage(vendor);
+        const state = await refreshVendorUsage(vendor, {
+            credentialPath: getConfiguredCredentialPath(this._settings, vendor),
+        });
 
         if (this._destroyed || requestId !== this._refreshRequestId)
             return;
@@ -457,13 +499,59 @@ class AIUsageIndicator extends PanelMenu.Button {
         );
     }
 
-    _detectInstalledVendors() {
-        const installedVendors = detectInstalledVendors();
-        if (this._areVendorListsEqual(this._installedVendors, installedVendors))
+    _applyDropdownOpacity() {
+        if (this._applyingDropdownOpacity)
             return;
 
-        this._installedVendors = installedVendors;
+        const percent = this._getDropdownOpacityPercent();
+        const opacity = Math.round((percent / 100) * 255);
+
+        if (this.menu.actor.opacity === opacity)
+            return;
+
+        this._applyingDropdownOpacity = true;
+        try {
+            this.menu.actor.opacity = opacity;
+        } finally {
+            this._applyingDropdownOpacity = false;
+        }
+    }
+
+    _handleEnabledVendorsChanged() {
+        const previousVendor = this._selectedVendor;
+        this._syncEnabledVendors();
+        this._selectVendor(previousVendor ?? this._getSelectedVendorSetting(), {
+            persist: true,
+        });
+
+        if (this._selectedVendor && this._selectedVendor !== previousVendor)
+            this._refreshSelectedVendor({force: true});
+    }
+
+    _handleCredentialPathChanged(vendor) {
+        this._vendorState[vendor] = this._createInitialVendorState();
+
+        try {
+            this._usageCache.remove(vendor);
+        } catch (error) {
+            // Cache cleanup is best-effort; refresh will still avoid stale reads.
+        }
+
+        if (vendor === this._selectedVendor)
+            this._refreshSelectedVendor({force: true});
+    }
+
+    _syncEnabledVendors() {
+        const enabledVendors = this._getEnabledVendors();
+        if (this._areVendorListsEqual(this._enabledVendors, enabledVendors))
+            return;
+
+        this._enabledVendors = enabledVendors;
         this._rebuildTabs();
+    }
+
+    _getEnabledVendors() {
+        return getEnabledVendors(this._settings);
     }
 
     _areVendorListsEqual(first, second) {
@@ -476,11 +564,11 @@ class AIUsageIndicator extends PanelMenu.Button {
             this._panelIcon.gicon = Gio.ThemedIcon.new('utilities-system-monitor-symbolic');
             this._panelLabel.set_text(_('AI'));
             this._overviewIcon.gicon = Gio.ThemedIcon.new('utilities-system-monitor-symbolic');
-            this._overviewTitle.set_text(_('No supported tools detected'));
-            this._overviewSubtitle.set_text(_('Install Claude Code or Codex CLI.'));
-            this._setStatusBadge(_('Not detected'), UsageStatus.NOT_CONFIGURED);
+            this._overviewTitle.set_text(_('No AI providers enabled'));
+            this._overviewSubtitle.set_text(_('Enable Claude or Codex in preferences.'));
+            this._setStatusBadge(_('Disabled'), UsageStatus.NOT_CONFIGURED);
             this._setMetricRows([]);
-            this._setMessage(_('Usage monitoring needs a supported local CLI.'));
+            this._setMessage(_('Usage monitoring needs at least one enabled provider.'));
             this._footerLabel.set_text(_('Last refresh: Never'));
             return;
         }
@@ -848,6 +936,11 @@ class AIUsageIndicator extends PanelMenu.Button {
             DEFAULT_REFRESH_INTERVAL_SECONDS;
     }
 
+    _getDropdownOpacityPercent() {
+        return this._settings.get_uint('dropdown-opacity-percent') ||
+            DEFAULT_DROPDOWN_OPACITY_PERCENT;
+    }
+
     _formatUpdatedAt(updatedAt) {
         if (!updatedAt)
             return _('Never');
@@ -862,6 +955,14 @@ class AIUsageIndicator extends PanelMenu.Button {
         for (const signalId of this._settingsSignals)
             this._settings.disconnect(signalId);
         this._settingsSignals = [];
+
+        for (const signalId of this._menuSignals)
+            this.menu.disconnect(signalId);
+        this._menuSignals = [];
+
+        for (const signalId of this._menuActorSignals)
+            this.menu.actor.disconnect(signalId);
+        this._menuActorSignals = [];
 
         if (this._refreshSourceId) {
             GLib.source_remove(this._refreshSourceId);

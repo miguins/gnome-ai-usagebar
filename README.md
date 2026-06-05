@@ -24,10 +24,11 @@ Implemented:
 
 - Compact top-bar indicator.
 - GNOME Shell 45-50 ES module extension entry point.
-- Dropdown tabs for detected Claude Code and Codex CLIs.
+- Dropdown tabs for enabled Claude and Codex providers.
 - Manual refresh from the dropdown.
 - Scheduled background refresh.
-- GSettings preferences for default vendor and refresh interval.
+- GSettings preferences for default vendor, enabled providers, credential paths,
+  and refresh interval.
 - Live usage loading for Claude and Codex/ChatGPT through vendor-managed OAuth
   credentials.
 - GNOME Keyring/Secret Service fallback for OAuth documents.
@@ -159,8 +160,11 @@ files, logs, or shell environment variables.
 
 Credential lookup order:
 
-1. Vendor-managed OAuth files created by the local CLI.
-2. GNOME Keyring/Secret Service OAuth documents.
+1. A configured credential file path, when set.
+2. The default vendor-managed OAuth file, when no custom path is set.
+3. GNOME Keyring/Secret Service OAuth documents.
+
+A custom credential path overrides the default vendor-managed path.
 
 The extension reads CLI-managed credential files only when the credential file
 is owner-only and its directory is not writable by group or other users.
@@ -192,8 +196,16 @@ being read.
 The extension stores only non-sensitive preferences in GSettings:
 
 - `selected-vendor`: the vendor shown by default.
+- `anthropic-enabled`: whether Claude appears in the dropdown.
+- `anthropic-credentials-path`: optional Claude credentials file path. Leave
+  empty to use `~/.claude/.credentials.json`.
+- `openai-enabled`: whether Codex appears in the dropdown.
+- `openai-codex-auth-path`: optional Codex auth file path. Leave empty to use
+  `~/.codex/auth.json`.
 - `refresh-interval-seconds`: background refresh interval, from 60 to 3600
   seconds.
+- `dropdown-opacity-percent`: extension dropdown opacity, from 35 to 100
+  percent.
 
 The default refresh interval is 300 seconds.
 
@@ -215,8 +227,8 @@ The default refresh interval is 300 seconds.
 
 ## Troubleshooting
 
-If no vendor tab appears, make sure `claude` or `codex` is installed and visible
-from your normal user session.
+If no vendor tab appears, enable at least one provider in the extension
+preferences.
 
 If the extension reports unsafe credential permissions, fix the credential file
 and its directory so group and other permission bits are not set.

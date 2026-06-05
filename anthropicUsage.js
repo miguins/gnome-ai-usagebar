@@ -5,7 +5,10 @@ import {
     UsageStatus,
     createUsageState,
 } from './usageState.js';
-import {Vendors} from './vendors.js';
+import {
+    VendorCredentialDefaults,
+    Vendors,
+} from './vendors.js';
 import {
     assertCredentialObject,
     needsRefresh,
@@ -26,7 +29,6 @@ import {
 } from './vendorFormat.js';
 
 const Anthropic = Object.freeze({
-    credentialsRelativePath: '.claude/.credentials.json',
     usageUrl: 'https://api.anthropic.com/api/oauth/usage',
     tokenUrl: 'https://platform.claude.com/v1/oauth/token',
     clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
@@ -39,11 +41,13 @@ export async function refreshAnthropicUsage({
     requestJson,
     now,
     credentialBaseDir,
+    credentialPath = null,
     secretCredentialStore,
 }) {
     const credentials = await readCredentialSource({
         vendor: Vendors.ANTHROPIC,
-        relativePath: Anthropic.credentialsRelativePath,
+        relativePath: VendorCredentialDefaults[Vendors.ANTHROPIC],
+        configuredPath: credentialPath,
         missingSummary: 'Claude credentials are missing. Run `claude` to sign in, or add a GNOME Keyring OAuth credential.',
         unreadableSummary: 'Claude credentials are unreadable. Run `claude` to sign in again.',
         credentialBaseDir,

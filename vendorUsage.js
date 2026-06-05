@@ -31,6 +31,7 @@ export {
 
 export async function refreshVendorUsage(vendor, {
     credentialBaseDir = GLib.get_home_dir(),
+    credentialPath = null,
     secretCredentialStore = null,
     session = null,
     requestJson = defaultRequestJson,
@@ -54,6 +55,7 @@ export async function refreshVendorUsage(vendor, {
                 requestJson,
                 now,
                 credentialBaseDir,
+                credentialPath,
                 secretCredentialStore,
             });
         case Vendors.OPENAI:
@@ -62,6 +64,7 @@ export async function refreshVendorUsage(vendor, {
                 requestJson,
                 now,
                 credentialBaseDir,
+                credentialPath,
                 secretCredentialStore,
             });
         default:

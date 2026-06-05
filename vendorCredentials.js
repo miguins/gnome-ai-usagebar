@@ -20,12 +20,13 @@ const REFRESH_BUFFER_SECONDS = 300;
 export async function readCredentialSource({
     vendor,
     relativePath,
+    configuredPath = null,
     missingSummary,
     unreadableSummary,
     credentialBaseDir,
     secretCredentialStore,
 }) {
-    const path = credentialPath(relativePath, credentialBaseDir);
+    const path = credentialPath(relativePath, credentialBaseDir, configuredPath);
     if (GLib.file_test(path, GLib.FileTest.EXISTS)) {
         return {
             document: readCredentialDocument(path, missingSummary, unreadableSummary),
@@ -135,10 +136,45 @@ export function validateCredentialParentDirectory(path) {
     });
 }
 
-export function credentialPath(relativePath, baseDir = GLib.get_home_dir()) {
+export function credentialPath(
+    relativePath,
+    baseDir = GLib.get_home_dir(),
+    configuredPath = null
+) {
+    const overridePath = expandCredentialPath(configuredPath);
+    if (overridePath)
+        return overridePath;
+
     return GLib.build_filenamev([
         baseDir,
         ...relativePath.split('/'),
+    ]);
+}
+
+export function expandCredentialPath(path, homeDir = GLib.get_home_dir()) {
+    const value = String(path ?? '').trim();
+    if (value.length === 0)
+        return null;
+
+    if (!homeDir)
+        return value;
+
+    if (value === '~')
+        return homeDir;
+
+    if (value.startsWith('~/')) {
+        return GLib.build_filenamev([
+            homeDir,
+            ...value.slice(2).split('/'),
+        ]);
+    }
+
+    if (value.startsWith('/'))
+        return value;
+
+    return GLib.build_filenamev([
+        homeDir,
+        ...value.split('/'),
     ]);
 }
 

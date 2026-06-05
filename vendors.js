@@ -12,6 +12,22 @@ export const VendorLabels = Object.freeze({
 
 export const VendorIds = Object.freeze(Object.values(Vendors));
 
+export const VendorCredentialDefaults = Object.freeze({
+    [Vendors.ANTHROPIC]: '.claude/.credentials.json',
+    [Vendors.OPENAI]: '.codex/auth.json',
+});
+
+export const VendorSettings = Object.freeze({
+    [Vendors.ANTHROPIC]: Object.freeze({
+        enabled: 'anthropic-enabled',
+        credentialPath: 'anthropic-credentials-path',
+    }),
+    [Vendors.OPENAI]: Object.freeze({
+        enabled: 'openai-enabled',
+        credentialPath: 'openai-codex-auth-path',
+    }),
+});
+
 export const VendorCommands = Object.freeze({
     [Vendors.ANTHROPIC]: ['claude'],
     [Vendors.OPENAI]: ['codex'],
@@ -27,6 +43,35 @@ const UserExecutableDirs = Object.freeze([
 
 export function isVendor(value) {
     return VendorIds.includes(value);
+}
+
+export function getEnabledVendors(settings) {
+    return VendorIds.filter(vendor => isVendorEnabled(settings, vendor));
+}
+
+export function isVendorEnabled(settings, vendor) {
+    if (!isVendor(vendor))
+        return false;
+
+    return settings.get_boolean(VendorSettings[vendor].enabled);
+}
+
+export function getConfiguredCredentialPath(settings, vendor) {
+    if (!isVendor(vendor))
+        return null;
+
+    const value = settings.get_string(VendorSettings[vendor].credentialPath).trim();
+    return value.length > 0 ? value : null;
+}
+
+export function getDefaultCredentialPath(vendor) {
+    if (!isVendor(vendor))
+        return null;
+
+    return GLib.build_filenamev([
+        GLib.get_home_dir(),
+        ...VendorCredentialDefaults[vendor].split('/'),
+    ]);
 }
 
 export function detectInstalledVendors() {

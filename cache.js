@@ -143,6 +143,14 @@ export class UsageCache {
         return {path};
     }
 
+    remove(vendor) {
+        this._assertVendor(vendor);
+
+        const path = this.getCachePath(vendor);
+        if (GLib.file_test(path, GLib.FileTest.EXISTS))
+            GLib.unlink(path);
+    }
+
     _parsePayload(vendor, payload) {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload))
             throw new Error('Cache payload must be an object');
