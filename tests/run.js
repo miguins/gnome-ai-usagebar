@@ -33,7 +33,11 @@ import {
     summarizeAnthropicUsage,
     summarizeOpenAIUsage,
 } from '../vendorUsage.js';
-import {httpStatusError} from '../vendorHttp.js';
+import {
+    createHttpSession,
+    httpStatusError,
+    resolveProxyUrl,
+} from '../vendorHttp.js';
 import {formatLocalTime} from '../vendorFormat.js';
 
 const tests = [];
@@ -399,6 +403,58 @@ test('http status mapping returns clear usage states', () => {
 
     for (const [status, expected] of cases)
         assertEqual(httpStatusError(Vendors.OPENAI, status).status, expected);
+});
+
+test('http session can use a configured proxy resolver', () => {
+    const session = createHttpSession({
+        proxyUrl: ' http://localhost:8080 ',
+    });
+
+    try {
+        assertEqual(session.get_proxy_resolver() !== null, true);
+    } finally {
+        session.abort();
+    }
+});
+
+test('proxy resolution can opt into HTTPS_PROXY', () => {
+    const previousHttpsProxy = GLib.getenv('HTTPS_PROXY');
+
+    try {
+        GLib.setenv('HTTPS_PROXY', ' http://localhost:8080 ', true);
+
+        assertEqual(
+            resolveProxyUrl({useEnvironmentProxy: true}),
+            'http://localhost:8080'
+        );
+        assertEqual(
+            resolveProxyUrl({
+                proxyUrl: 'http://configured-proxy:8080',
+                useEnvironmentProxy: true,
+            }),
+            'http://configured-proxy:8080'
+        );
+        assertEqual(resolveProxyUrl({useEnvironmentProxy: false}), null);
+    } finally {
+        restoreEnvironment('HTTPS_PROXY', previousHttpsProxy);
+    }
+});
+
+test('http session can use HTTPS_PROXY when enabled', () => {
+    const previousHttpsProxy = GLib.getenv('HTTPS_PROXY');
+
+    try {
+        GLib.setenv('HTTPS_PROXY', 'http://localhost:8080', true);
+        const session = createHttpSession({useEnvironmentProxy: true});
+
+        try {
+            assertEqual(session.get_proxy_resolver() !== null, true);
+        } finally {
+            session.abort();
+        }
+    } finally {
+        restoreEnvironment('HTTPS_PROXY', previousHttpsProxy);
+    }
 });
 
 testAsync('secret credential store returns null for missing keyring item', async () => {
@@ -926,6 +982,13 @@ function formatDurationForTest(totalSeconds) {
         return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 
     return `${remainingMinutes}m`;
+}
+
+function restoreEnvironment(name, previousValue) {
+    if (previousValue === null)
+        GLib.unsetenv(name);
+    else
+        GLib.setenv(name, previousValue, true);
 }
 
 class FakeSecretBackend {

@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 import Soup from 'gi://Soup?version=3.0';
 
 import {UsageStatus} from './usageState.js';
@@ -11,11 +12,40 @@ import {
 } from './vendorErrors.js';
 
 const HTTP_TIMEOUT_SECONDS = 10;
+const HTTPS_PROXY_ENV = 'HTTPS_PROXY';
 
-export function createHttpSession() {
-    return new Soup.Session({
+export function createHttpSession({
+    proxyUrl = null,
+    useEnvironmentProxy = false,
+} = {}) {
+    const session = new Soup.Session({
         timeout: HTTP_TIMEOUT_SECONDS,
     });
+    const normalizedProxyUrl = resolveProxyUrl({
+        proxyUrl,
+        useEnvironmentProxy,
+    });
+
+    if (normalizedProxyUrl) {
+        session.set_proxy_resolver(
+            Gio.SimpleProxyResolver.new(normalizedProxyUrl, null)
+        );
+    }
+
+    return session;
+}
+
+export function normalizeProxyUrl(proxyUrl) {
+    const value = String(proxyUrl ?? '').trim();
+    return value.length > 0 ? value : null;
+}
+
+export function resolveProxyUrl({
+    proxyUrl = null,
+    useEnvironmentProxy = false,
+} = {}) {
+    return normalizeProxyUrl(proxyUrl) ??
+        (useEnvironmentProxy ? normalizeProxyUrl(GLib.getenv(HTTPS_PROXY_ENV)) : null);
 }
 
 export async function requestJson(session, {

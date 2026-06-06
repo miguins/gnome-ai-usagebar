@@ -23,6 +23,16 @@
       <summary>Follow system theme</summary>
       <description>Whether the extension should use GNOME Shell theme colors instead of its built-in usage colors.</description>
     </key>
+    <key name="proxy-url" type="s">
+      <default>''</default>
+      <summary>Proxy URL</summary>
+      <description>Optional HTTP proxy URL used for vendor usage requests. Leave empty to use the default network configuration.</description>
+    </key>
+    <key name="use-https-proxy-env" type="b">
+      <default>false</default>
+      <summary>Use HTTPS_PROXY</summary>
+      <description>Whether usage requests should use the HTTPS_PROXY environment variable when no proxy URL is configured.</description>
+    </key>
     <key name="anthropic-enabled" type="b">
       <default>true</default>
       <summary>Enable Claude</summary>

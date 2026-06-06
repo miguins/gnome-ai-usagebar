@@ -29,7 +29,7 @@ Implemented:
 - Preferences button in the dropdown.
 - Scheduled background refresh.
 - GSettings preferences for default vendor, enabled providers, credential paths,
-  and refresh interval.
+  proxy URL, and refresh interval.
 - Live usage loading for Claude and Codex/ChatGPT through vendor-managed OAuth
   credentials.
 - GNOME Keyring/Secret Service fallback for OAuth documents.
@@ -211,6 +211,10 @@ The extension stores only non-sensitive preferences in GSettings:
   `~/.codex/auth.json`.
 - `refresh-interval-seconds`: background refresh interval, from 60 to 3600
   seconds.
+- `proxy-url`: optional HTTP proxy URL for vendor usage requests, for example
+  `http://localhost:8080`.
+- `use-https-proxy-env`: whether to use `HTTPS_PROXY` for vendor usage requests
+  when `proxy-url` is empty.
 - `dropdown-opacity-percent`: extension dropdown opacity, from 35 to 100
   percent.
 - `follow-system-theme`: whether badges, progress bars, and controls should use

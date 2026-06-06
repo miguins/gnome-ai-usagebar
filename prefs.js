@@ -36,6 +36,8 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         group.add(this._buildRefreshIntervalRow(settings));
         group.add(this._buildDropdownOpacityRow(settings));
         group.add(this._buildFollowSystemThemeRow(settings));
+        group.add(this._buildProxyUrlRow(settings));
+        group.add(this._buildHttpsProxyEnvRow(settings));
         page.add(group);
 
         for (const vendor of VendorIds)
@@ -174,6 +176,47 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
 
         settings.connect('changed::follow-system-theme', () => {
             const active = settings.get_boolean('follow-system-theme');
+            if (row.active !== active)
+                row.active = active;
+        });
+
+        return row;
+    }
+
+    _buildProxyUrlRow(settings) {
+        const row = new Adw.EntryRow({
+            title: _('Proxy URL'),
+            text: settings.get_string('proxy-url'),
+            show_apply_button: true,
+        });
+
+        row.connect('apply', () => {
+            settings.set_string('proxy-url', row.text.trim());
+        });
+
+        settings.connect('changed::proxy-url', () => {
+            const value = settings.get_string('proxy-url');
+            if (row.text !== value)
+                row.text = value;
+        });
+
+        return row;
+    }
+
+    _buildHttpsProxyEnvRow(settings) {
+        const row = new Adw.SwitchRow({
+            title: _('Use HTTPS_PROXY'),
+            subtitle: _('Use the HTTPS_PROXY environment variable when Proxy URL is empty.'),
+            active: settings.get_boolean('use-https-proxy-env'),
+        });
+
+        row.connect('notify::active', () => {
+            if (settings.get_boolean('use-https-proxy-env') !== row.active)
+                settings.set_boolean('use-https-proxy-env', row.active);
+        });
+
+        settings.connect('changed::use-https-proxy-env', () => {
+            const active = settings.get_boolean('use-https-proxy-env');
             if (row.active !== active)
                 row.active = active;
         });

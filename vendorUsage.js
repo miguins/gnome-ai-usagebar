@@ -32,6 +32,8 @@ export {
 export async function refreshVendorUsage(vendor, {
     credentialBaseDir = GLib.get_home_dir(),
     credentialPath = null,
+    proxyUrl = null,
+    useEnvironmentProxy = false,
     secretCredentialStore = null,
     session = null,
     requestJson = defaultRequestJson,
@@ -45,7 +47,10 @@ export async function refreshVendorUsage(vendor, {
         );
     }
 
-    const httpSession = session ?? createHttpSession();
+    const httpSession = session ?? createHttpSession({
+        proxyUrl,
+        useEnvironmentProxy,
+    });
 
     try {
         switch (vendor) {

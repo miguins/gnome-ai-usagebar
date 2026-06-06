@@ -407,6 +407,18 @@ class AIUsageIndicator extends PanelMenu.Button {
             })
         );
 
+        this._settingsSignals.push(
+            this._settings.connect('changed::proxy-url', () => {
+                this._refreshSelectedVendor({force: true});
+            })
+        );
+
+        this._settingsSignals.push(
+            this._settings.connect('changed::use-https-proxy-env', () => {
+                this._refreshSelectedVendor({force: true});
+            })
+        );
+
         for (const vendor of VendorIds) {
             this._settingsSignals.push(
                 this._settings.connect(`changed::${VendorSettings[vendor].enabled}`, () => {
@@ -534,6 +546,8 @@ class AIUsageIndicator extends PanelMenu.Button {
         const requestId = ++this._refreshRequestId;
         const state = await refreshVendorUsage(vendor, {
             credentialPath: getConfiguredCredentialPath(this._settings, vendor),
+            proxyUrl: this._getProxyUrl(),
+            useEnvironmentProxy: this._getUseHttpsProxyEnv(),
         });
 
         if (this._destroyed || requestId !== this._refreshRequestId)
@@ -1065,6 +1079,15 @@ class AIUsageIndicator extends PanelMenu.Button {
     _getDropdownOpacityPercent() {
         return this._settings.get_uint('dropdown-opacity-percent') ||
             DEFAULT_DROPDOWN_OPACITY_PERCENT;
+    }
+
+    _getProxyUrl() {
+        const value = this._settings.get_string('proxy-url').trim();
+        return value.length > 0 ? value : null;
+    }
+
+    _getUseHttpsProxyEnv() {
+        return this._settings.get_boolean('use-https-proxy-env');
     }
 
     _formatUpdatedAt(updatedAt) {
