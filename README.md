@@ -1,76 +1,91 @@
 # GNOME AI UsageBar
 
-GNOME AI UsageBar is a GNOME Shell extension that shows AI plan usage in the top
-bar.
+GNOME AI UsageBar is a GNOME Shell extension that shows AI plan usage in the
+top bar. It keeps Claude and OpenAI Codex/ChatGPT usage visible without opening
+a terminal or browser.
 
-It is inspired by
-[akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar), but it
-is a GNOME-native GJS extension. It does not require the upstream Rust binary at
-runtime.
+The project is inspired by
+[akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar), but
+this implementation is a GNOME-native GJS extension. It does not require the
+upstream Rust binary at runtime.
 
-## Screenshots
+## ✨ At A Glance
+
+- 🖥️ **GNOME Shell:** this repo currently supports GNOME Shell 45-50.
+- 🤖 **Providers:** Claude and OpenAI Codex/ChatGPT.
+- 🧭 **UI:** one compact panel indicator with provider tabs in the dropdown.
+- 🔄 **Refresh:** manual refresh plus background refresh, defaulting to 300
+  seconds.
+- 💾 **Cache:** normalized local cache to reduce repeated vendor requests.
+- 🔐 **Credentials:** vendor-managed OAuth files or GNOME Keyring. Secrets are not
+  stored in GSettings, project files, logs, or shell environment variables.
+
+GNOME Shell 40-44 support is planned and should remain separate from the
+current GNOME Shell 45+ entry point.
+
+## 🖼️ Screenshots
 
 ![AI UsageBar dropdown showing organized usage metrics](docs/usage_bar.png)
 
 ![AI UsageBar in the GNOME top bar](docs/usage_bar_desktop.png)
 
-## Current Status
+## ✅ What Works Today
 
-The current implementation targets GNOME Shell 45 and newer. The extension
-metadata declares support through GNOME Shell 50, the latest stable GNOME line as
-of June 2026.
-
-Implemented:
-
-- Compact top-bar indicator.
-- GNOME Shell 45-50 ES module extension entry point.
+- Top-bar indicator with the selected provider and current usage summary.
 - Dropdown tabs for enabled Claude and Codex providers.
+- Usage metrics for current and weekly usage windows when the vendor response
+  provides them.
 - Manual refresh from the dropdown.
 - Preferences button in the dropdown.
 - Scheduled background refresh.
-- GSettings preferences for default vendor, enabled providers, credential paths,
-  proxy URL, and refresh interval.
-- Preferences reset action for restoring extension defaults.
-- Live usage loading for Claude and Codex/ChatGPT through vendor-managed OAuth
-  credentials.
+- Preferences for enabled providers, default provider, credential paths, proxy
+  settings, refresh interval, dropdown opacity, and theme colors.
+- OAuth token refresh using vendor-managed credentials.
 - GNOME Keyring/Secret Service fallback for OAuth documents.
 - Owner-only permission checks for credential and cache files.
-- Local normalized cache for usage responses.
 - Clear states for unauthenticated, rate-limited, offline, malformed response,
   cache error, and unsupported account cases.
 - GJS tests for state, cache, credentials, parsing, and mocked refresh flows.
 
-Planned:
+## 📋 Requirements
 
-- GNOME Shell 40-44 legacy extension entry point.
+- GNOME Shell 45-50 for the current implementation.
+- `gnome-extensions` for enabling, disabling, opening preferences, and packing
+  the extension.
+- `glib-compile-schemas` if you edit the schema or install from a source that
+  does not include `schemas/gschemas.compiled`.
+- For development checks: `make`, `gjs`, and `node`.
 
-## Install For Local Development
+## 🛠️ Install For Local Development
 
-Link this checkout into your per-user GNOME Shell extension directory:
+Use a symlink when you are editing this checkout and want GNOME Shell to load
+the working tree directly:
 
 ```sh
-mkdir -p ~/.local/share/gnome-shell/extensions
-ln -s "$PWD" ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
+EXT_DIR="$HOME/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com"
+mkdir -p "$(dirname "$EXT_DIR")"
+ln -s "$PWD" "$EXT_DIR"
+gnome-extensions enable ai-usagebar@miguins.com
+```
+
+Open the preferences window:
+
+```sh
+gnome-extensions prefs ai-usagebar@miguins.com
 ```
 
 The repository includes `schemas/gschemas.compiled`, so a fresh checkout does
 not need a schema compilation step before enabling the extension. If you edit
-the schema XML during development, regenerate it manually:
+the schema XML during development, regenerate the compiled schema:
 
 ```sh
 glib-compile-schemas schemas
 ```
 
-Enable the extension:
-
-```sh
-gnome-extensions enable ai-usagebar@miguins.com
-```
-
-## Manual Install
+## 📥 Manual Install
 
 A bundler is not required for a personal install. GNOME Shell can load an
-unpacked extension directory directly from:
+unpacked extension directory from:
 
 ```text
 ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
@@ -78,108 +93,81 @@ unpacked extension directory directly from:
 
 The directory name must match the `uuid` in `metadata.json`.
 
-From a cloned checkout or an extracted source archive, copy the project into the
+From a cloned checkout or extracted source archive, copy the project into the
 GNOME Shell extensions directory:
 
 ```sh
 mkdir -p ~/.local/share/gnome-shell/extensions
 cp -a "$PWD" ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com
+gnome-extensions enable ai-usagebar@miguins.com
 ```
 
-The copied directory already includes the compiled settings schema. If you copy
-from a source that does not include `schemas/gschemas.compiled`, compile the
-schema manually:
+If the copied source does not include `schemas/gschemas.compiled`, compile the
+schema in the installed extension directory:
 
 ```sh
 glib-compile-schemas \
   ~/.local/share/gnome-shell/extensions/ai-usagebar@miguins.com/schemas
 ```
 
-Enable the extension:
+When replacing an existing copy, disable the extension first, replace the
+`ai-usagebar@miguins.com` directory with the new source, then enable it again.
 
-```sh
-gnome-extensions enable ai-usagebar@miguins.com
-```
-
-If you are replacing an existing copy, disable the extension first, replace the
-`ai-usagebar@miguins.com` directory with the new source, and then enable the
-extension.
-
-## Reload GNOME Shell
+## 🔄 Reload GNOME Shell
 
 Reload GNOME Shell if the extension does not appear after enabling it or if
-updated files are not picked up after replacing an existing install. On Wayland,
-log out and log back in. On X11, you can reload GNOME Shell without logging out
-by pressing `Alt+F2`, entering `r`, and pressing `Enter`.
+updated files are not picked up after replacing an existing install.
 
-## Run Checks
+On Wayland, log out and log back in. On X11, press `Alt+F2`, enter `r`, and
+press `Enter`.
 
-Use the Make targets for the normal local workflow:
-
-```sh
-make test
-make schema
-make pack
-make check
-```
-
-What they do:
-
-- `make test` runs the GJS test suite.
-- `make schema` validates the GSettings schema in strict dry-run mode.
-- `make pack` creates a local extension zip in `/tmp/gnome-ai-usagebar-pack`.
-- `make check` runs schema validation, tests, and packaging.
-
-You can still run the commands directly:
-
-```sh
-gjs -m tests/run.js
-glib-compile-schemas --strict --dry-run schemas
-```
-
-## Build A Bundle
-
-This step is optional for local installs. Use it when you want a distributable
-GNOME Shell extension zip.
-
-```sh
-make pack
-```
-
-The bundle is written to:
-
-```text
-/tmp/gnome-ai-usagebar-pack/ai-usagebar@miguins.com.shell-extension.zip
-```
-
-To use another output directory:
-
-```sh
-make pack PACK_DIR=/tmp/my-extension-pack
-```
-
-## Credentials And Privacy
+## 🔐 Credentials And Privacy
 
 The extension does not store API keys or OAuth tokens in GSettings, project
 files, logs, or shell environment variables.
 
+For the normal setup, sign in with the vendor CLI and leave the credential path
+blank in AI UsageBar preferences:
+
+- Claude: run `claude` and complete the sign-in flow.
+- Codex: run `codex login` and complete the sign-in flow.
+
 Credential lookup order:
 
-1. A configured credential file path, when set.
-2. The default vendor-managed OAuth file, when no custom path is set. For
-   Codex, `CODEX_HOME` overrides `~/.codex`; for Claude, `CLAUDE_CONFIG_DIR`
-   overrides `~/.claude`.
+1. A configured credential file path, when set in preferences.
+2. The default vendor-managed OAuth file, when no custom path is set.
 3. GNOME Keyring/Secret Service OAuth documents.
 
-A custom credential path overrides the default vendor-managed path.
-When a custom credential path is inside your home directory, the extension stores
-it in GSettings as a home-relative `~/...` path to avoid retaining absolute home
-paths in dconf.
+Default vendor-managed paths:
 
-The extension reads CLI-managed credential files only when the credential file
-is owner-only and its directory is not writable by group or other users.
+- Claude: `$CLAUDE_CONFIG_DIR/.credentials.json`, or
+  `~/.claude/.credentials.json` when `CLAUDE_CONFIG_DIR` is not set.
+- Codex: `$CODEX_HOME/auth.json`, or `~/.codex/auth.json` when `CODEX_HOME` is
+  not set.
+
+A custom credential path overrides the default vendor-managed path. When a
+custom path is inside your home directory, the extension stores it in GSettings
+as a home-relative `~/...` path instead of an absolute home path.
+
+Credential files must be private enough for the extension to read them. The
+credential file must be owner-only, and its directory must not be writable by
+group or other users. For default paths, run the commands for the providers you
+use:
+
+```sh
+chmod 600 ~/.claude/.credentials.json
+chmod go-w ~/.claude
+
+chmod 600 ~/.codex/auth.json
+chmod go-w ~/.codex
+```
+
+Adjust the paths if you configured custom credential files.
+
 Refreshed credential files are written through private temporary files and
 atomically moved into place.
+
+### 🗝️ GNOME Keyring
 
 Secret Service entries should use this schema name:
 
@@ -201,64 +189,103 @@ Usage cache files are stored under the user cache directory and are also
 owner-only. Unsafe cache permissions are treated as a cache error rather than
 being read.
 
-## Settings
+## ⚙️ Settings
 
-The extension stores only non-sensitive preferences in GSettings:
+The extension stores only non-sensitive preferences in GSettings.
 
-- `selected-vendor`: the vendor shown by default.
-- `anthropic-enabled`: whether Claude appears in the dropdown.
-- `anthropic-credentials-path`: optional Claude credentials file path. Leave
-  empty to use `$CLAUDE_CONFIG_DIR/.credentials.json` when `CLAUDE_CONFIG_DIR`
-  is set, otherwise `~/.claude/.credentials.json`.
-- `openai-enabled`: whether Codex appears in the dropdown.
-- `openai-codex-auth-path`: optional Codex auth file path. Leave empty to use
-  `$CODEX_HOME/auth.json` when `CODEX_HOME` is set, otherwise
-  `~/.codex/auth.json`.
-- `refresh-interval-seconds`: background refresh interval, from 60 to 3600
-  seconds.
-- `proxy-url`: optional HTTP proxy URL for vendor usage requests, for example
-  `http://localhost:8080`.
-- `use-https-proxy-env`: whether to use `HTTPS_PROXY` for vendor usage requests
-  when `proxy-url` is empty.
-- `dropdown-opacity-percent`: extension dropdown opacity, from 35 to 100
-  percent.
-- `follow-system-theme`: whether badges, progress bars, and controls should use
-  GNOME Shell theme colors instead of the built-in usage colors. Defaults to
-  `false`.
-
-The default refresh interval is 300 seconds.
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `selected-vendor` | `anthropic` | Provider shown by default when the extension starts. |
+| `anthropic-enabled` | `true` | Whether Claude appears in the dropdown. |
+| `anthropic-credentials-path` | empty | Optional Claude credentials file path. Empty uses the vendor-managed default path. |
+| `openai-enabled` | `true` | Whether Codex appears in the dropdown. |
+| `openai-codex-auth-path` | empty | Optional Codex auth file path. Empty uses the vendor-managed default path. |
+| `refresh-interval-seconds` | `300` | Background refresh interval, from 60 to 3600 seconds. |
+| `proxy-url` | empty | Optional HTTP proxy URL for vendor usage requests, for example `http://localhost:8080`. |
+| `use-https-proxy-env` | `false` | Whether to use `HTTPS_PROXY` when `proxy-url` is empty. |
+| `dropdown-opacity-percent` | `100` | Dropdown opacity, from 35 to 100 percent. |
+| `follow-system-theme` | `false` | Whether badges, progress bars, and controls use GNOME Shell theme colors instead of built-in usage colors. |
 
 Use **Reset Settings** at the bottom of the preferences window to restore these
 preferences to their schema defaults. This does not delete vendor credentials or
 GNOME Keyring entries.
 
-## Project Layout
+## 🧪 Developer Workflow
+
+Run the full local check before considering broad changes complete:
+
+```sh
+make check
+```
+
+`make check` runs these targets:
+
+- `make syntax`: checks `extension.js` with `node --check`.
+- `make schema`: validates the GSettings schema in strict dry-run mode.
+- `make test`: runs the GJS test suite.
+- `make pack`: creates a local extension zip.
+
+You can also run the main checks directly:
+
+```sh
+gjs -m tests/run.js
+glib-compile-schemas --strict --dry-run schemas
+```
+
+## 📦 Build A Bundle
+
+This step is optional for local installs. Use it when you want a distributable
+GNOME Shell extension zip:
+
+```sh
+make pack
+```
+
+The bundle is written to:
+
+```text
+/tmp/gnome-ai-usagebar-pack/ai-usagebar@miguins.com.shell-extension.zip
+```
+
+To use another output directory:
+
+```sh
+make pack PACK_DIR=/tmp/my-extension-pack
+```
+
+## 🗂️ Project Layout
 
 - `extension.js`: GNOME Shell 45+ panel indicator and dropdown UI.
 - `prefs.js`: preferences window.
+- `stylesheet.css`: extension styling.
 - `vendorUsage.js`: public vendor refresh dispatcher.
 - `anthropicUsage.js` and `openAIUsage.js`: vendor-specific parsing and refresh
   flows.
 - `vendorHttp.js`: Soup request handling and HTTP status mapping.
-- `vendorCredentials.js`: credential source lookup and safe credential writes.
+- `vendorCredentials.js`: credential source lookup, validation, and write-back.
+- `credentialStore.js`: GNOME Keyring/Secret Service integration.
+- `vendorErrors.js`: shared vendor error conversion.
 - `vendorFormat.js`: shared usage metric formatting.
-- `fileSecurity.js`: permission checks and private file writes.
+- `fileSecurity.js`: owner-only permission checks and private file writes.
 - `cache.js`: normalized local usage cache.
 - `usageState.js`: shared usage state model.
-- `vendors.js`: vendor identifiers and CLI detection.
+- `vendors.js`: vendor identifiers, settings keys, credential defaults, and CLI
+  detection.
+- `assets/`: provider icons.
+- `schemas/`: GSettings schema.
 - `tests/run.js`: GJS test runner.
 
-## Troubleshooting
+## 🧯 Troubleshooting
 
-If no vendor tab appears, enable at least one provider in the extension
-preferences.
+| Problem | What to check |
+| --- | --- |
+| No provider tab appears | Enable at least one provider in the extension preferences. |
+| Extension does not appear after enabling | Reload GNOME Shell, then confirm the install directory is named `ai-usagebar@miguins.com`. |
+| Usage is unauthenticated | Sign in with the vendor CLI, configure a custom credential path, or add a GNOME Keyring OAuth credential. |
+| Unsafe credential permissions | Make the credential file owner-only and ensure the parent directory is not writable by group or other users. |
+| Usage stays cached | Press **Refresh** in the dropdown. The extension avoids unnecessary network requests while cached data is fresh. |
+| Proxy is required | Set `proxy-url` in preferences, or enable `use-https-proxy-env` and provide `HTTPS_PROXY` through the GNOME Shell process environment. |
 
-If the extension reports unsafe credential permissions, fix the credential file
-and its directory so group and other permission bits are not set.
+## 📄 License
 
-If usage stays cached, press **Refresh** in the dropdown. The extension avoids
-unnecessary network requests when fresh cached data is available.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+MIT. See `LICENSE`.
