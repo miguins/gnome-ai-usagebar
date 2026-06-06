@@ -55,6 +55,7 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         let syncing = false;
 
         const syncSelection = () => {
+            const previousSyncing = syncing;
             syncing = true;
             try {
                 row.sensitive = vendorIds.length > 0;
@@ -67,34 +68,44 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
                 if (row.selected !== selected)
                     row.selected = selected;
             } finally {
-                syncing = false;
+                syncing = previousSyncing;
             }
         };
 
         const syncModel = () => {
-            vendorIds = getEnabledVendors(settings);
-            const vendorLabels = vendorIds.length > 0
-                ? vendorIds.map(vendor => VendorLabels[vendor])
-                : [_('No providers enabled')];
+            syncing = true;
+            try {
+                vendorIds = getEnabledVendors(settings);
+                const vendorLabels = vendorIds.length > 0
+                    ? vendorIds.map(vendor => VendorLabels[vendor])
+                    : [_('No providers enabled')];
 
-            row.model = Gtk.StringList.new(vendorLabels);
-            syncSelection();
+                row.model = Gtk.StringList.new(vendorLabels);
+                syncSelection();
+            } finally {
+                syncing = false;
+            }
         };
 
-        row.connect('notify::selected', () => {
+        const handleSelectedChanged = () => {
             if (syncing || vendorIds.length === 0)
                 return;
 
-            const vendor = vendorIds[row.selected] ?? vendorIds[0];
+            const selected = row.selected;
+            if (selected < 0 || selected >= vendorIds.length)
+                return;
+
+            const vendor = vendorIds[selected];
             if (settings.get_string('selected-vendor') !== vendor)
                 settings.set_string('selected-vendor', vendor);
-        });
+        };
 
         settings.connect('changed::selected-vendor', syncSelection);
         for (const vendor of VendorIds)
             settings.connect(`changed::${VendorSettings[vendor].enabled}`, syncModel);
 
         syncModel();
+        row.connect('notify::selected', handleSelectedChanged);
         return row;
     }
 
