@@ -23,6 +23,18 @@ const REFRESH_INTERVAL_STEP_SECONDS = 60;
 const DROPDOWN_OPACITY_MIN_PERCENT = 35;
 const DROPDOWN_OPACITY_MAX_PERCENT = 100;
 const DROPDOWN_OPACITY_STEP_PERCENT = 5;
+const SETTINGS_KEYS = Object.freeze([
+    'selected-vendor',
+    'refresh-interval-seconds',
+    'dropdown-opacity-percent',
+    'follow-system-theme',
+    'proxy-url',
+    'use-https-proxy-env',
+    'anthropic-enabled',
+    'anthropic-credentials-path',
+    'openai-enabled',
+    'openai-codex-auth-path',
+]);
 
 export default class AIUsageBarPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -42,6 +54,8 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
 
         for (const vendor of VendorIds)
             page.add(this._buildProviderGroup(settings, vendor, window));
+
+        page.add(this._buildResetGroup(settings, window));
 
         window.add(page);
     }
@@ -320,6 +334,53 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         row.add_suffix(clearButton);
 
         return row;
+    }
+
+    _buildResetGroup(settings, window) {
+        const group = new Adw.PreferencesGroup({
+            title: _('Reset'),
+        });
+        const row = new Adw.ActionRow({
+            title: _('Reset Settings'),
+            subtitle: _('Restore all extension preferences to their default values.'),
+        });
+        const button = new Gtk.Button({
+            label: _('Reset'),
+            valign: Gtk.Align.CENTER,
+        });
+        button.add_css_class('destructive-action');
+        button.connect('clicked', () => this._confirmResetSettings(settings, window));
+
+        row.add_suffix(button);
+        row.activatable_widget = button;
+        group.add(row);
+
+        return group;
+    }
+
+    _confirmResetSettings(settings, window) {
+        const dialog = new Adw.MessageDialog({
+            heading: _('Reset Settings?'),
+            body: _('This will restore all AI UsageBar preferences to their default values. Credentials stored in vendor files or GNOME Keyring will not be deleted.'),
+            transient_for: window,
+            modal: true,
+        });
+
+        dialog.add_response('cancel', _('Cancel'));
+        dialog.add_response('reset', _('Reset'));
+        dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response('cancel');
+        dialog.set_close_response('cancel');
+        dialog.connect('response', (_dialog, response) => {
+            if (response === 'reset')
+                this._resetSettings(settings);
+        });
+        dialog.present();
+    }
+
+    _resetSettings(settings) {
+        for (const key of SETTINGS_KEYS)
+            settings.reset(key);
     }
 
     _chooseCredentialPath(window, settings, key, title) {

@@ -30,6 +30,7 @@ Implemented:
 - Scheduled background refresh.
 - GSettings preferences for default vendor, enabled providers, credential paths,
   proxy URL, and refresh interval.
+- Preferences reset action for restoring extension defaults.
 - Live usage loading for Claude and Codex/ChatGPT through vendor-managed OAuth
   credentials.
 - GNOME Keyring/Secret Service fallback for OAuth documents.
@@ -226,6 +227,10 @@ The extension stores only non-sensitive preferences in GSettings:
   `false`.
 
 The default refresh interval is 300 seconds.
+
+Use **Reset Settings** at the bottom of the preferences window to restore these
+preferences to their schema defaults. This does not delete vendor credentials or
+GNOME Keyring entries.
 
 ## Project Layout
 
