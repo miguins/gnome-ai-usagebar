@@ -26,6 +26,7 @@ Implemented:
 - GNOME Shell 45-50 ES module extension entry point.
 - Dropdown tabs for enabled Claude and Codex providers.
 - Manual refresh from the dropdown.
+- Preferences button in the dropdown.
 - Scheduled background refresh.
 - GSettings preferences for default vendor, enabled providers, credential paths,
   and refresh interval.

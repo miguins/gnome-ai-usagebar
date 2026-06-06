@@ -37,6 +37,7 @@ const METRIC_ROW_SPACING = 10;
 const PROGRESS_TRACK_WIDTH = 300;
 const RELATIVE_TIME_REFRESH_SECONDS = 60;
 const REFRESH_CONTENT_SPACING = 8;
+const ACTION_BUTTON_SPACING = 8;
 const BUILT_IN_THEME_STYLE_CLASS = 'ai-usagebar-built-in-theme';
 const FOLLOW_SYSTEM_THEME_STYLE_CLASS = 'ai-usagebar-follow-system-theme';
 const TAB_BUTTON_STYLE_CLASS = 'ai-usagebar-tab';
@@ -68,10 +69,11 @@ const VendorIconFiles = Object.freeze({
 
 const AIUsageIndicator = GObject.registerClass(
 class AIUsageIndicator extends PanelMenu.Button {
-    _init(settings) {
+    _init(settings, openPreferences) {
         super._init(0.5, _('AI UsageBar'));
 
         this._settings = settings;
+        this._openPreferences = openPreferences;
         normalizeCredentialPathSettings(this._settings);
         this._settingsSignals = [];
         this._menuSignals = [];
@@ -290,6 +292,26 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-actions',
             x_expand: true,
         });
+        box.layout_manager.spacing = ACTION_BUTTON_SPACING;
+
+        this._refreshButton = this._buildActionButton({
+            iconName: 'view-refresh-symbolic',
+            label: _('Refresh'),
+            onClick: () => this._refreshSelectedVendor({force: true}),
+        });
+        this._settingsButton = this._buildActionButton({
+            iconName: 'preferences-system-symbolic',
+            label: _('Settings'),
+            onClick: () => this._openPreferencesFromMenu(),
+        });
+
+        box.add_child(this._refreshButton);
+        box.add_child(this._settingsButton);
+        item.add_child(box);
+        this.menu.addMenuItem(item);
+    }
+
+    _buildActionButton({iconName, label, onClick}) {
         const button = new St.Button({
             style_class: this._getRefreshButtonStyleClass(),
             reactive: true,
@@ -297,28 +319,31 @@ class AIUsageIndicator extends PanelMenu.Button {
             track_hover: true,
             x_expand: true,
         });
-        this._refreshButton = button;
 
         const content = new St.BoxLayout({
             style_class: 'ai-usagebar-refresh-content',
             x_expand: true,
         });
         content.add_child(new St.Icon({
-            icon_name: 'view-refresh-symbolic',
+            icon_name: iconName,
             style_class: 'ai-usagebar-action-icon',
             icon_size: 16,
         }));
         content.add_child(this._buildHorizontalSpacer(REFRESH_CONTENT_SPACING));
         content.add_child(new St.Label({
-            text: _('Refresh'),
+            text: label,
             y_align: Clutter.ActorAlign.CENTER,
         }));
         button.set_child(content);
-        button.connect('clicked', () => this._refreshSelectedVendor({force: true}));
+        button.connect('clicked', onClick);
 
-        box.add_child(button);
-        item.add_child(box);
-        this.menu.addMenuItem(item);
+        return button;
+    }
+
+    _openPreferencesFromMenu() {
+        this.menu.close();
+        if (this._openPreferences)
+            this._openPreferences();
     }
 
     _handleMenuCapturedEvent(_actor, event) {
@@ -340,6 +365,11 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         if (this._refreshButton?.contains(targetActor)) {
             this._refreshSelectedVendor({force: true});
+            return Clutter.EVENT_STOP;
+        }
+
+        if (this._settingsButton?.contains(targetActor)) {
+            this._openPreferencesFromMenu();
             return Clutter.EVENT_STOP;
         }
 
@@ -581,6 +611,8 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         if (this._refreshButton)
             this._refreshButton.set_style_class_name(this._getRefreshButtonStyleClass());
+        if (this._settingsButton)
+            this._settingsButton.set_style_class_name(this._getRefreshButtonStyleClass());
     }
 
     _setStyleClassPresence(actor, styleClass, enabled) {
@@ -1075,7 +1107,10 @@ class AIUsageIndicator extends PanelMenu.Button {
 export default class AIUsageBarExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._indicator = new AIUsageIndicator(this._settings);
+        this._indicator = new AIUsageIndicator(
+            this._settings,
+            () => this.openPreferences()
+        );
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
