@@ -11,6 +11,7 @@ import {
 } from './credentialStore.js';
 import {UsageStatus} from './usageState.js';
 import {
+    getDefaultCredentialPath,
     VendorLabels,
 } from './vendors.js';
 import {UsageFetchError} from './vendorErrors.js';
@@ -24,9 +25,15 @@ export async function readCredentialSource({
     missingSummary,
     unreadableSummary,
     credentialBaseDir,
+    useEnvironmentDefaultPaths = true,
     secretCredentialStore,
 }) {
-    const path = credentialPath(relativePath, credentialBaseDir, configuredPath);
+    const path = configuredPath
+        ? credentialPath(relativePath, credentialBaseDir, configuredPath)
+        : getDefaultCredentialPath(vendor, {
+            homeDir: credentialBaseDir,
+            useEnvironment: useEnvironmentDefaultPaths,
+        });
     if (GLib.file_test(path, GLib.FileTest.EXISTS)) {
         return {
             document: readCredentialDocument(path, missingSummary, unreadableSummary),

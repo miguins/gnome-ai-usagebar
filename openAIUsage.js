@@ -40,6 +40,7 @@ export async function refreshOpenAIUsage({
     now,
     credentialBaseDir,
     credentialPath = null,
+    useEnvironmentDefaultPaths = true,
     secretCredentialStore,
 }) {
     const credentials = await readCredentialSource({
@@ -49,6 +50,7 @@ export async function refreshOpenAIUsage({
         missingSummary: 'Codex credentials are missing. Run `codex login` to sign in, or add a GNOME Keyring OAuth credential.',
         unreadableSummary: 'Codex credentials are unreadable. Run `codex login` to sign in again.',
         credentialBaseDir,
+        useEnvironmentDefaultPaths,
         secretCredentialStore,
     });
     const document = credentials.document;

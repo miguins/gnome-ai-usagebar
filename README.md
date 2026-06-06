@@ -165,7 +165,9 @@ files, logs, or shell environment variables.
 Credential lookup order:
 
 1. A configured credential file path, when set.
-2. The default vendor-managed OAuth file, when no custom path is set.
+2. The default vendor-managed OAuth file, when no custom path is set. For
+   Codex, `CODEX_HOME` overrides `~/.codex`; for Claude, `CLAUDE_CONFIG_DIR`
+   overrides `~/.claude`.
 3. GNOME Keyring/Secret Service OAuth documents.
 
 A custom credential path overrides the default vendor-managed path.
@@ -205,9 +207,11 @@ The extension stores only non-sensitive preferences in GSettings:
 - `selected-vendor`: the vendor shown by default.
 - `anthropic-enabled`: whether Claude appears in the dropdown.
 - `anthropic-credentials-path`: optional Claude credentials file path. Leave
-  empty to use `~/.claude/.credentials.json`.
+  empty to use `$CLAUDE_CONFIG_DIR/.credentials.json` when `CLAUDE_CONFIG_DIR`
+  is set, otherwise `~/.claude/.credentials.json`.
 - `openai-enabled`: whether Codex appears in the dropdown.
 - `openai-codex-auth-path`: optional Codex auth file path. Leave empty to use
+  `$CODEX_HOME/auth.json` when `CODEX_HOME` is set, otherwise
   `~/.codex/auth.json`.
 - `refresh-interval-seconds`: background refresh interval, from 60 to 3600
   seconds.

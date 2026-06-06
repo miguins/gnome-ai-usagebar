@@ -17,6 +17,16 @@ export const VendorCredentialDefaults = Object.freeze({
     [Vendors.OPENAI]: '.codex/auth.json',
 });
 
+export const VendorCredentialEnvironment = Object.freeze({
+    [Vendors.ANTHROPIC]: 'CLAUDE_CONFIG_DIR',
+    [Vendors.OPENAI]: 'CODEX_HOME',
+});
+
+const VendorCredentialFileNames = Object.freeze({
+    [Vendors.ANTHROPIC]: '.credentials.json',
+    [Vendors.OPENAI]: 'auth.json',
+});
+
 export const VendorSettings = Object.freeze({
     [Vendors.ANTHROPIC]: Object.freeze({
         enabled: 'anthropic-enabled',
@@ -96,12 +106,25 @@ export function normalizeCredentialPathSettings(settings) {
     }
 }
 
-export function getDefaultCredentialPath(vendor) {
+export function getDefaultCredentialPath(vendor, {
+    homeDir = GLib.get_home_dir(),
+    useEnvironment = true,
+} = {}) {
     if (!isVendor(vendor))
         return null;
 
+    const environmentDir = useEnvironment
+        ? _credentialDirectoryFromEnvironment(vendor, homeDir)
+        : null;
+    if (environmentDir) {
+        return GLib.build_filenamev([
+            environmentDir,
+            VendorCredentialFileNames[vendor],
+        ]);
+    }
+
     return GLib.build_filenamev([
-        GLib.get_home_dir(),
+        homeDir,
         ...VendorCredentialDefaults[vendor].split('/'),
     ]);
 }
@@ -127,6 +150,42 @@ function _isCommandInstalled(command) {
 
         return GLib.file_test(path, GLib.FileTest.IS_EXECUTABLE);
     });
+}
+
+function _credentialDirectoryFromEnvironment(vendor, homeDir) {
+    const variable = VendorCredentialEnvironment[vendor];
+    if (!variable)
+        return null;
+
+    const value = String(GLib.getenv(variable) ?? '').trim();
+    if (value.length === 0)
+        return null;
+
+    return _expandDirectoryPath(value, homeDir);
+}
+
+function _expandDirectoryPath(path, homeDir) {
+    const value = String(path ?? '').trim();
+    if (value.length === 0)
+        return null;
+
+    if (!homeDir || value.startsWith('/'))
+        return value;
+
+    if (value === '~')
+        return homeDir;
+
+    if (value.startsWith('~/')) {
+        return GLib.build_filenamev([
+            homeDir,
+            ...value.slice(2).split('/'),
+        ]);
+    }
+
+    return GLib.build_filenamev([
+        homeDir,
+        ...value.split('/'),
+    ]);
 }
 
 function _stripTrailingSlashes(path) {

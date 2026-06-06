@@ -42,6 +42,7 @@ export async function refreshAnthropicUsage({
     now,
     credentialBaseDir,
     credentialPath = null,
+    useEnvironmentDefaultPaths = true,
     secretCredentialStore,
 }) {
     const credentials = await readCredentialSource({
@@ -51,6 +52,7 @@ export async function refreshAnthropicUsage({
         missingSummary: 'Claude credentials are missing. Run `claude` to sign in, or add a GNOME Keyring OAuth credential.',
         unreadableSummary: 'Claude credentials are unreadable. Run `claude` to sign in again.',
         credentialBaseDir,
+        useEnvironmentDefaultPaths,
         secretCredentialStore,
     });
     const document = credentials.document;

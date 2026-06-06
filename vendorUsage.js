@@ -30,7 +30,7 @@ export {
 } from './openAIUsage.js';
 
 export async function refreshVendorUsage(vendor, {
-    credentialBaseDir = GLib.get_home_dir(),
+    credentialBaseDir = null,
     credentialPath = null,
     proxyUrl = null,
     useEnvironmentProxy = false,
@@ -47,6 +47,8 @@ export async function refreshVendorUsage(vendor, {
         );
     }
 
+    const resolvedCredentialBaseDir = credentialBaseDir ?? GLib.get_home_dir();
+    const useEnvironmentDefaultPaths = credentialBaseDir === null;
     const httpSession = session ?? createHttpSession({
         proxyUrl,
         useEnvironmentProxy,
@@ -59,8 +61,9 @@ export async function refreshVendorUsage(vendor, {
                 session: httpSession,
                 requestJson,
                 now,
-                credentialBaseDir,
+                credentialBaseDir: resolvedCredentialBaseDir,
                 credentialPath,
+                useEnvironmentDefaultPaths,
                 secretCredentialStore,
             });
         case Vendors.OPENAI:
@@ -68,8 +71,9 @@ export async function refreshVendorUsage(vendor, {
                 session: httpSession,
                 requestJson,
                 now,
-                credentialBaseDir,
+                credentialBaseDir: resolvedCredentialBaseDir,
                 credentialPath,
+                useEnvironmentDefaultPaths,
                 secretCredentialStore,
             });
         default:
