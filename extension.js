@@ -25,6 +25,7 @@ import {
     getConfiguredCredentialPath,
     getEnabledVendors,
     isVendor,
+    normalizeCredentialPathSettings,
 } from './vendors.js';
 import {refreshVendorUsage} from './vendorUsage.js';
 import {formatLocalTime} from './vendorFormat.js';
@@ -71,6 +72,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         super._init(0.5, _('AI UsageBar'));
 
         this._settings = settings;
+        normalizeCredentialPathSettings(this._settings);
         this._settingsSignals = [];
         this._menuSignals = [];
         this._menuActorSignals = [];

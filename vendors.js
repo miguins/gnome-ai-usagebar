@@ -64,6 +64,38 @@ export function getConfiguredCredentialPath(settings, vendor) {
     return value.length > 0 ? value : null;
 }
 
+export function normalizeCredentialPathSetting(path, homeDir = GLib.get_home_dir()) {
+    const value = String(path ?? '').trim();
+    if (value.length === 0)
+        return '';
+
+    if (!homeDir || value === '~' || value.startsWith('~/'))
+        return value;
+
+    const normalizedHomeDir = _stripTrailingSlashes(homeDir);
+    if (normalizedHomeDir.length === 0)
+        return value;
+
+    if (value === normalizedHomeDir)
+        return '~';
+
+    const homePrefix = `${normalizedHomeDir}/`;
+    if (value.startsWith(homePrefix))
+        return `~/${value.slice(homePrefix.length)}`;
+
+    return value;
+}
+
+export function normalizeCredentialPathSettings(settings) {
+    for (const vendor of VendorIds) {
+        const key = VendorSettings[vendor].credentialPath;
+        const value = settings.get_string(key);
+        const normalized = normalizeCredentialPathSetting(value);
+        if (value !== normalized)
+            settings.set_string(key, normalized);
+    }
+}
+
 export function getDefaultCredentialPath(vendor) {
     if (!isVendor(vendor))
         return null;
@@ -95,4 +127,12 @@ function _isCommandInstalled(command) {
 
         return GLib.file_test(path, GLib.FileTest.IS_EXECUTABLE);
     });
+}
+
+function _stripTrailingSlashes(path) {
+    let value = String(path);
+    while (value.length > 1 && value.endsWith('/'))
+        value = value.slice(0, -1);
+
+    return value;
 }

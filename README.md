@@ -168,6 +168,9 @@ Credential lookup order:
 3. GNOME Keyring/Secret Service OAuth documents.
 
 A custom credential path overrides the default vendor-managed path.
+When a custom credential path is inside your home directory, the extension stores
+it in GSettings as a home-relative `~/...` path to avoid retaining absolute home
+paths in dconf.
 
 The extension reads CLI-managed credential files only when the credential file
 is owner-only and its directory is not writable by group or other users.

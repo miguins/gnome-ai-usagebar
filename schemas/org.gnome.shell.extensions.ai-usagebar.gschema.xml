@@ -31,7 +31,7 @@
     <key name="anthropic-credentials-path" type="s">
       <default>''</default>
       <summary>Claude credentials path</summary>
-      <description>Optional path to Claude OAuth credentials. Leave empty to use the default vendor-managed path.</description>
+      <description>Optional path to Claude OAuth credentials. Leave empty to use the default vendor-managed path. Paths inside the home directory are stored home-relative.</description>
     </key>
     <key name="openai-enabled" type="b">
       <default>true</default>
@@ -41,7 +41,7 @@
     <key name="openai-codex-auth-path" type="s">
       <default>''</default>
       <summary>Codex auth path</summary>
-      <description>Optional path to Codex OAuth credentials. Leave empty to use the default vendor-managed path.</description>
+      <description>Optional path to Codex OAuth credentials. Leave empty to use the default vendor-managed path. Paths inside the home directory are stored home-relative.</description>
     </key>
   </schema>
 </schemalist>

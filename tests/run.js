@@ -19,7 +19,10 @@ import {
     credentialPath,
     expandCredentialPath,
 } from '../vendorCredentials.js';
-import {Vendors} from '../vendors.js';
+import {
+    Vendors,
+    normalizeCredentialPathSetting,
+} from '../vendors.js';
 import {
     anthropicPlanLabel,
     buildAnthropicUsageDisplay,
@@ -476,6 +479,25 @@ test('credential paths support default, absolute, and home-relative locations', 
         assertEqual(
             expandCredentialPath('/tmp/codex-auth.json', homeDir),
             '/tmp/codex-auth.json'
+        );
+        assertEqual(
+            normalizeCredentialPathSetting(
+                GLib.build_filenamev([homeDir, 'custom', 'auth.json']),
+                homeDir
+            ),
+            '~/custom/auth.json'
+        );
+        assertEqual(
+            normalizeCredentialPathSetting('~/custom/auth.json', homeDir),
+            '~/custom/auth.json'
+        );
+        assertEqual(
+            normalizeCredentialPathSetting('/tmp/codex-auth.json', homeDir),
+            '/tmp/codex-auth.json'
+        );
+        assertEqual(
+            normalizeCredentialPathSetting(' custom/auth.json ', homeDir),
+            'custom/auth.json'
         );
     } finally {
         removeTree(homeDir);

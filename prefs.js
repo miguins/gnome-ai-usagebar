@@ -14,6 +14,7 @@ import {
     getEnabledVendors,
     isVendorEnabled,
     isVendor,
+    normalizeCredentialPathSetting,
 } from './vendors.js';
 
 const REFRESH_INTERVAL_MIN_SECONDS = 60;
@@ -219,14 +220,19 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
 
     _buildCredentialPathRow(settings, vendor, window) {
         const key = VendorSettings[vendor].credentialPath;
+        const currentText = normalizeCredentialPathSetting(settings.get_string(key));
+        if (settings.get_string(key) !== currentText)
+            settings.set_string(key, currentText);
+
         const row = new Adw.EntryRow({
             title: this._getCredentialPathTitle(vendor),
-            text: settings.get_string(key),
+            text: currentText,
         });
 
         row.connect('notify::text', () => {
-            if (settings.get_string(key) !== row.text)
-                settings.set_string(key, row.text);
+            const value = normalizeCredentialPathSetting(row.text);
+            if (settings.get_string(key) !== value)
+                settings.set_string(key, value);
         });
 
         settings.connect(`changed::${key}`, () => {
@@ -277,7 +283,7 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
                 const file = dialog.get_file();
                 const path = file?.get_path();
                 if (path)
-                    settings.set_string(key, path);
+                    settings.set_string(key, normalizeCredentialPathSetting(path));
             }
 
             dialog.destroy();
