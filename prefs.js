@@ -28,6 +28,11 @@ const SETTINGS_KEYS = Object.freeze([
     'refresh-interval-seconds',
     'dropdown-opacity-percent',
     'follow-system-theme',
+    'display-metric',
+    'metric-display-mode',
+    'panel-icon-style',
+    'show-panel-percentage',
+    'show-panel-reset',
     'proxy-url',
     'use-https-proxy-env',
     'anthropic-enabled',
@@ -51,6 +56,8 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         group.add(this._buildProxyUrlRow(settings));
         group.add(this._buildHttpsProxyEnvRow(settings));
         page.add(group);
+
+        page.add(this._buildDisplayGroup(settings));
 
         for (const vendor of VendorIds)
             page.add(this._buildProviderGroup(settings, vendor, window));
@@ -201,6 +208,105 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
 
         settings.connect('changed::follow-system-theme', () => {
             const active = settings.get_boolean('follow-system-theme');
+            if (row.active !== active)
+                row.active = active;
+        });
+
+        return row;
+    }
+
+    _buildDisplayGroup(settings) {
+        const group = new Adw.PreferencesGroup({
+            title: _('Display'),
+            description: _('Control how usage is shown in the panel and dropdown.'),
+        });
+
+        group.add(this._buildChoiceRow(settings, 'display-metric', {
+            title: _('Usage Metric'),
+            subtitle: _('Show the consumed or remaining share of each window.'),
+            choices: [
+                {value: 'used', label: _('Used')},
+                {value: 'remaining', label: _('Remaining')},
+            ],
+        }));
+        group.add(this._buildChoiceRow(settings, 'metric-display-mode', {
+            title: _('Metric Style'),
+            subtitle: _('Render dropdown usage windows as text, a bar, or both.'),
+            choices: [
+                {value: 'both', label: _('Text and bar')},
+                {value: 'text', label: _('Text only')},
+                {value: 'bar', label: _('Bar only')},
+            ],
+        }));
+        group.add(this._buildChoiceRow(settings, 'panel-icon-style', {
+            title: _('Panel Icon'),
+            subtitle: _('Choose the top-bar icon style.'),
+            choices: [
+                {value: 'vendor', label: _('Provider logo')},
+                {value: 'generic', label: _('Generic icon')},
+                {value: 'hidden', label: _('Hidden')},
+            ],
+        }));
+        group.add(this._buildSwitchRow(settings, 'show-panel-percentage', {
+            title: _('Show Percentage In Panel'),
+            subtitle: _('Display the usage percentage text in the top bar.'),
+        }));
+        group.add(this._buildSwitchRow(settings, 'show-panel-reset', {
+            title: _('Show Reset Countdown In Panel'),
+            subtitle: _('Append the reset countdown after the panel percentage.'),
+        }));
+
+        return group;
+    }
+
+    _buildChoiceRow(settings, key, {title, subtitle, choices}) {
+        const values = choices.map(choice => choice.value);
+        const row = new Adw.ComboRow({
+            title,
+            subtitle,
+            model: Gtk.StringList.new(choices.map(choice => choice.label)),
+        });
+
+        let syncing = false;
+        const syncSelection = () => {
+            syncing = true;
+            try {
+                const index = values.indexOf(settings.get_string(key));
+                row.selected = index >= 0 ? index : 0;
+            } finally {
+                syncing = false;
+            }
+        };
+
+        row.connect('notify::selected', () => {
+            if (syncing)
+                return;
+
+            const value = values[row.selected];
+            if (value && settings.get_string(key) !== value)
+                settings.set_string(key, value);
+        });
+
+        settings.connect(`changed::${key}`, syncSelection);
+        syncSelection();
+
+        return row;
+    }
+
+    _buildSwitchRow(settings, key, {title, subtitle}) {
+        const row = new Adw.SwitchRow({
+            title,
+            subtitle,
+            active: settings.get_boolean(key),
+        });
+
+        row.connect('notify::active', () => {
+            if (settings.get_boolean(key) !== row.active)
+                settings.set_boolean(key, row.active);
+        });
+
+        settings.connect(`changed::${key}`, () => {
+            const active = settings.get_boolean(key);
             if (row.active !== active)
                 row.active = active;
         });

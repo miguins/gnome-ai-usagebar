@@ -23,6 +23,45 @@
       <summary>Follow system theme</summary>
       <description>Whether the extension should use GNOME Shell theme colors instead of its built-in usage colors.</description>
     </key>
+    <key name="display-metric" type="s">
+      <choices>
+        <choice value="used"/>
+        <choice value="remaining"/>
+      </choices>
+      <default>'used'</default>
+      <summary>Display metric</summary>
+      <description>Whether usage percentages show the consumed (used) or available (remaining) share of each window.</description>
+    </key>
+    <key name="metric-display-mode" type="s">
+      <choices>
+        <choice value="both"/>
+        <choice value="text"/>
+        <choice value="bar"/>
+      </choices>
+      <default>'both'</default>
+      <summary>Metric display mode</summary>
+      <description>Whether dropdown usage windows render as text, a progress bar, or both.</description>
+    </key>
+    <key name="panel-icon-style" type="s">
+      <choices>
+        <choice value="vendor"/>
+        <choice value="generic"/>
+        <choice value="hidden"/>
+      </choices>
+      <default>'vendor'</default>
+      <summary>Panel icon style</summary>
+      <description>Whether the top-bar icon uses the provider logo, a generic symbolic icon, or is hidden.</description>
+    </key>
+    <key name="show-panel-percentage" type="b">
+      <default>true</default>
+      <summary>Show panel percentage</summary>
+      <description>Whether the top-bar indicator shows the usage percentage text.</description>
+    </key>
+    <key name="show-panel-reset" type="b">
+      <default>true</default>
+      <summary>Show panel reset countdown</summary>
+      <description>Whether the top-bar indicator appends the reset countdown after the usage percentage.</description>
+    </key>
     <key name="proxy-url" type="s">
       <default>''</default>
       <summary>Proxy URL</summary>

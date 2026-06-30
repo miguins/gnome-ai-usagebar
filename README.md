@@ -39,7 +39,9 @@ current GNOME Shell 45+ entry point.
 - Preferences button in the dropdown.
 - Scheduled background refresh.
 - Preferences for enabled providers, default provider, credential paths, proxy
-  settings, refresh interval, dropdown opacity, and theme colors.
+  settings, refresh interval, dropdown opacity, theme colors, used/remaining
+  metric, metric display style, panel icon style, and panel percentage/reset
+  visibility.
 - OAuth token refresh using vendor-managed credentials.
 - GNOME Keyring/Secret Service fallback for OAuth documents.
 - Owner-only permission checks for credential and cache files.
@@ -205,6 +207,11 @@ The extension stores only non-sensitive preferences in GSettings.
 | `use-https-proxy-env` | `false` | Whether to use `HTTPS_PROXY` when `proxy-url` is empty. |
 | `dropdown-opacity-percent` | `100` | Dropdown opacity, from 35 to 100 percent. |
 | `follow-system-theme` | `false` | Whether badges, progress bars, and controls use GNOME Shell theme colors instead of built-in usage colors. |
+| `display-metric` | `used` | Whether usage percentages show the consumed (`used`) or available (`remaining`) share of each window. |
+| `metric-display-mode` | `both` | Whether dropdown usage windows render as `text`, a `bar`, or `both`. |
+| `panel-icon-style` | `vendor` | Top-bar icon style: provider logo (`vendor`), a `generic` symbolic icon, or `hidden`. |
+| `show-panel-percentage` | `true` | Whether the top-bar indicator shows the usage percentage text. |
+| `show-panel-reset` | `true` | Whether the top-bar indicator appends the reset countdown after the percentage. |
 
 Use **Reset Settings** at the bottom of the preferences window to restore these
 preferences to their schema defaults. This does not delete vendor credentials or

@@ -407,6 +407,18 @@ class AIUsageIndicator extends PanelMenu.Button {
             })
         );
 
+        for (const key of [
+            'display-metric',
+            'metric-display-mode',
+            'panel-icon-style',
+            'show-panel-percentage',
+            'show-panel-reset',
+        ]) {
+            this._settingsSignals.push(
+                this._settings.connect(`changed::${key}`, () => this._render())
+            );
+        }
+
         this._settingsSignals.push(
             this._settings.connect('changed::proxy-url', () => {
                 this._refreshSelectedVendor({force: true});
@@ -701,8 +713,8 @@ class AIUsageIndicator extends PanelMenu.Button {
 
     _render() {
         if (!this._selectedVendor) {
-            this._panelIcon.gicon = Gio.ThemedIcon.new('utilities-system-monitor-symbolic');
-            this._panelLabel.set_text(_('AI'));
+            this._applyPanelIcon(null);
+            this._setPanelLabelText(_('AI'));
             this._overviewIcon.gicon = Gio.ThemedIcon.new('utilities-system-monitor-symbolic');
             this._overviewTitle.set_text(_('No AI providers enabled'));
             this._overviewSubtitle.set_text(_('Enable Claude or Codex in preferences.'));
@@ -717,8 +729,8 @@ class AIUsageIndicator extends PanelMenu.Button {
         const state = this._vendorState[this._selectedVendor];
         const statusLabel = this._getUsageStatusLabel(state);
 
-        this._panelIcon.gicon = this._getVendorIcon(this._selectedVendor);
-        this._panelLabel.set_text(this._getPanelText(label, state, statusLabel));
+        this._applyPanelIcon(this._selectedVendor);
+        this._setPanelLabelText(this._getPanelText(label, state, statusLabel));
         this._overviewIcon.gicon = this._getVendorIcon(this._selectedVendor);
         this._overviewTitle.set_text(state.plan ?? label);
         this._overviewSubtitle.set_text(this._getOverviewSubtitle(label, state));
@@ -728,13 +740,40 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._footerLabel.set_text(this._getFooterText(state));
     }
 
+    _setPanelLabelText(text) {
+        this._panelLabel.set_text(text);
+        this._panelLabel.visible = text.length > 0;
+    }
+
+    _applyPanelIcon(vendor) {
+        const style = this._getPanelIconStyle();
+        if (style === 'hidden') {
+            this._panelIcon.visible = false;
+            return;
+        }
+
+        this._panelIcon.visible = true;
+        this._panelIcon.gicon = style === 'generic' || !vendor
+            ? Gio.ThemedIcon.new('utilities-system-monitor-symbolic')
+            : this._getVendorIcon(vendor);
+    }
+
     _getPanelText(label, state, statusLabel) {
         const primaryMetric = state.metrics?.find(metric => metric.kind === 'current-session') ??
             state.metrics?.find(metric => metric.percent !== null);
         if ((state.status === UsageStatus.READY || state.status === UsageStatus.STALE) &&
             primaryMetric) {
-            const resetIn = this._getMetricResetIn(primaryMetric);
-            return resetIn ? `${primaryMetric.value} · ${resetIn}` : primaryMetric.value;
+            const parts = [];
+            if (this._getShowPanelPercentage())
+                parts.push(this._formatMetricValue(primaryMetric));
+
+            if (this._getShowPanelReset()) {
+                const resetIn = this._getMetricResetIn(primaryMetric);
+                if (resetIn)
+                    parts.push(resetIn);
+            }
+
+            return parts.join(' · ');
         }
 
         return `${label}: ${statusLabel}`;
@@ -850,11 +889,18 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-metric-label',
             x_expand: true,
         }));
-        top.add_child(new St.Label({
-            text: metric.value,
-            style_class: 'ai-usagebar-metric-value',
-            y_align: Clutter.ActorAlign.CENTER,
-        }));
+
+        const displayMode = this._getMetricDisplayMode();
+        const showValueText = displayMode !== 'bar' || metric.percent === null;
+        const showBar = metric.percent !== null && displayMode !== 'text';
+
+        if (showValueText) {
+            top.add_child(new St.Label({
+                text: this._formatMetricValue(metric),
+                style_class: 'ai-usagebar-metric-value',
+                y_align: Clutter.ActorAlign.CENTER,
+            }));
+        }
         row.add_child(top);
 
         const detail = this._getMetricDetail(metric);
@@ -866,25 +912,38 @@ class AIUsageIndicator extends PanelMenu.Button {
             }));
         }
 
-        if (metric.percent !== null) {
+        if (showBar) {
+            const fillPercent = this._getDisplayMetric() === 'remaining'
+                ? 100 - metric.percent
+                : metric.percent;
             row.add_child(this._buildVerticalSpacer(METRIC_CONTENT_SPACING));
-            row.add_child(this._buildProgressBar(metric.percent));
+            row.add_child(this._buildProgressBar(fillPercent, metric.percent));
         }
 
         return row;
     }
 
-    _buildProgressBar(percent) {
-        const fillWidth = percent <= 0
+    _formatMetricValue(metric) {
+        if (metric.percent === null)
+            return metric.value;
+
+        const percent = this._getDisplayMetric() === 'remaining'
+            ? 100 - metric.percent
+            : metric.percent;
+        return `${percent}%`;
+    }
+
+    _buildProgressBar(fillPercent, usedPercent = fillPercent) {
+        const fillWidth = fillPercent <= 0
             ? 0
-            : Math.max(3, Math.round((PROGRESS_TRACK_WIDTH * percent) / 100));
+            : Math.max(3, Math.round((PROGRESS_TRACK_WIDTH * fillPercent) / 100));
         const track = new St.BoxLayout({
             style_class: 'ai-usagebar-progress-track',
             width: PROGRESS_TRACK_WIDTH,
             height: 6,
         });
         track.add_child(new St.Widget({
-            style_class: `ai-usagebar-progress-fill ${this._getProgressStyleClass(percent)}`,
+            style_class: `ai-usagebar-progress-fill ${this._getProgressStyleClass(usedPercent)}`,
             width: fillWidth,
             height: 6,
         }));
@@ -1088,6 +1147,30 @@ class AIUsageIndicator extends PanelMenu.Button {
 
     _getUseHttpsProxyEnv() {
         return this._settings.get_boolean('use-https-proxy-env');
+    }
+
+    _getDisplayMetric() {
+        return this._settings.get_string('display-metric') === 'remaining'
+            ? 'remaining'
+            : 'used';
+    }
+
+    _getMetricDisplayMode() {
+        const value = this._settings.get_string('metric-display-mode');
+        return value === 'text' || value === 'bar' ? value : 'both';
+    }
+
+    _getPanelIconStyle() {
+        const value = this._settings.get_string('panel-icon-style');
+        return value === 'generic' || value === 'hidden' ? value : 'vendor';
+    }
+
+    _getShowPanelPercentage() {
+        return this._settings.get_boolean('show-panel-percentage');
+    }
+
+    _getShowPanelReset() {
+        return this._settings.get_boolean('show-panel-reset');
     }
 
     _formatUpdatedAt(updatedAt) {
