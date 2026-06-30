@@ -210,7 +210,7 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-overview',
             x_expand: true,
         });
-        box.layout_manager.spacing = 10;
+        box.layout_manager.spacing = 12;
         this._overviewIcon = new St.Icon({
             style_class: 'ai-usagebar-overview-icon',
             icon_size: 24,
@@ -483,7 +483,7 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-vendor-label',
             x_expand: true,
         });
-        box.layout_manager.spacing = 6;
+        box.layout_manager.spacing = 12;
         box.add_child(new St.Icon({
             gicon: this._getVendorIcon(vendor),
             style_class: iconStyleClass,
