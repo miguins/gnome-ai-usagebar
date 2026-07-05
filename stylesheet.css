@@ -105,6 +105,21 @@
     color: rgba(255, 255, 255, 0.96);
 }
 
+.ai-usagebar-built-in-theme .ai-usagebar-panel-warning,
+.ai-usagebar-follow-system-theme .ai-usagebar-panel-warning {
+    color: rgb(248, 228, 92);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-panel-alert,
+.ai-usagebar-follow-system-theme .ai-usagebar-panel-alert {
+    color: rgb(255, 163, 72);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-panel-critical,
+.ai-usagebar-follow-system-theme .ai-usagebar-panel-critical {
+    color: rgb(255, 123, 114);
+}
+
 .ai-usagebar-built-in-theme .ai-usagebar-overview-subtitle,
 .ai-usagebar-built-in-theme .ai-usagebar-footer,
 .ai-usagebar-built-in-theme .ai-usagebar-metric-detail {
@@ -169,6 +184,10 @@
 
 .ai-usagebar-built-in-theme .ai-usagebar-progress-warning {
     background-color: rgb(248, 228, 92);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-progress-alert {
+    background-color: rgb(255, 163, 72);
 }
 
 .ai-usagebar-built-in-theme .ai-usagebar-progress-critical {

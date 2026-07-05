@@ -16,6 +16,10 @@ import {
     isVendor,
     normalizeCredentialPathSetting,
 } from './vendors.js';
+import {
+    UsageThresholdDefinitions,
+    UsageThresholdIds,
+} from './usageThresholds.js';
 
 const REFRESH_INTERVAL_MIN_SECONDS = 60;
 const REFRESH_INTERVAL_MAX_SECONDS = 3600;
@@ -23,6 +27,13 @@ const REFRESH_INTERVAL_STEP_SECONDS = 60;
 const DROPDOWN_OPACITY_MIN_PERCENT = 35;
 const DROPDOWN_OPACITY_MAX_PERCENT = 100;
 const DROPDOWN_OPACITY_STEP_PERCENT = 5;
+const THRESHOLD_MIN_PERCENT = 0;
+const THRESHOLD_MAX_PERCENT = 100;
+const THRESHOLD_STEP_PERCENT = 1;
+const THRESHOLD_SETTINGS_KEYS = UsageThresholdDefinitions.reduce((keys, definition) => {
+    keys.push(definition.enabledKey, definition.percentKey);
+    return keys;
+}, []);
 const SETTINGS_KEYS = Object.freeze([
     'selected-vendor',
     'refresh-interval-seconds',
@@ -33,6 +44,8 @@ const SETTINGS_KEYS = Object.freeze([
     'panel-icon-style',
     'show-panel-percentage',
     'show-panel-reset',
+    'color-panel-text-by-usage',
+    ...THRESHOLD_SETTINGS_KEYS,
     'proxy-url',
     'use-https-proxy-env',
     'anthropic-enabled',
@@ -58,6 +71,7 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         page.add(group);
 
         page.add(this._buildDisplayGroup(settings));
+        page.add(this._buildUsageAlertsGroup(settings));
 
         for (const vendor of VendorIds)
             page.add(this._buildProviderGroup(settings, vendor, window));
@@ -255,8 +269,93 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
             title: _('Show Reset Countdown In Panel'),
             subtitle: _('Append the reset countdown after the panel percentage.'),
         }));
+        group.add(this._buildSwitchRow(settings, 'color-panel-text-by-usage', {
+            title: _('Color Panel Text By Usage'),
+            subtitle: _('Use threshold colors for top-bar text, even when following the system theme.'),
+        }));
 
         return group;
+    }
+
+    _buildUsageAlertsGroup(settings) {
+        const group = new Adw.PreferencesGroup({
+            title: _('Usage Alerts'),
+            description: _('Notify and color the panel when a usage window reaches a configured threshold.'),
+        });
+
+        for (const definition of UsageThresholdDefinitions)
+            group.add(this._buildThresholdRow(settings, definition));
+
+        return group;
+    }
+
+    _buildThresholdRow(settings, definition) {
+        const row = new Adw.ActionRow({
+            title: this._getThresholdTitle(definition.id),
+            subtitle: this._getThresholdSubtitle(definition.id),
+        });
+        const adjustment = new Gtk.Adjustment({
+            lower: THRESHOLD_MIN_PERCENT,
+            upper: THRESHOLD_MAX_PERCENT,
+            step_increment: THRESHOLD_STEP_PERCENT,
+            page_increment: 5,
+            value: settings.get_uint(definition.percentKey),
+        });
+        const spin = new Gtk.SpinButton({
+            adjustment,
+            climb_rate: 0,
+            digits: 0,
+            numeric: true,
+            update_policy: Gtk.SpinButtonUpdatePolicy.IF_VALID,
+            valign: Gtk.Align.CENTER,
+            width_chars: 3,
+        });
+        const percentLabel = new Gtk.Label({
+            label: '%',
+            valign: Gtk.Align.CENTER,
+        });
+        const toggle = new Gtk.Switch({
+            active: settings.get_boolean(definition.enabledKey),
+            valign: Gtk.Align.CENTER,
+        });
+
+        const syncSensitive = () => {
+            spin.sensitive = toggle.active;
+            percentLabel.sensitive = toggle.active;
+        };
+
+        spin.connect('notify::value', () => {
+            const value = Math.round(spin.value);
+            if (settings.get_uint(definition.percentKey) !== value)
+                settings.set_uint(definition.percentKey, value);
+        });
+
+        toggle.connect('notify::active', () => {
+            if (settings.get_boolean(definition.enabledKey) !== toggle.active)
+                settings.set_boolean(definition.enabledKey, toggle.active);
+            syncSensitive();
+        });
+
+        settings.connect(`changed::${definition.percentKey}`, () => {
+            const value = settings.get_uint(definition.percentKey);
+            if (Math.round(spin.value) !== value)
+                spin.value = value;
+        });
+
+        settings.connect(`changed::${definition.enabledKey}`, () => {
+            const active = settings.get_boolean(definition.enabledKey);
+            if (toggle.active !== active)
+                toggle.active = active;
+            syncSensitive();
+        });
+
+        syncSensitive();
+        row.add_suffix(spin);
+        row.add_suffix(percentLabel);
+        row.add_suffix(toggle);
+        row.activatable_widget = toggle;
+
+        return row;
     }
 
     _buildChoiceRow(settings, key, {title, subtitle, choices}) {
@@ -530,6 +629,39 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
             return _('Codex Auth Path');
         default:
             return _('Credential Path');
+        }
+    }
+
+    _getThresholdTitle(id) {
+        switch (id) {
+        case UsageThresholdIds.WARNING:
+            return _('Warning');
+        case UsageThresholdIds.ALERT:
+            return _('Alert');
+        case UsageThresholdIds.CRITICAL:
+            return _('Critical');
+        case UsageThresholdIds.CRITICAL_HIGH:
+            return _('Critical Reminder');
+        case UsageThresholdIds.EXHAUSTED:
+            return _('Exhausted');
+        default:
+            return _('Usage Threshold');
+        }
+    }
+
+    _getThresholdSubtitle(id) {
+        switch (id) {
+        case UsageThresholdIds.WARNING:
+            return _('Yellow panel text and progress bars.');
+        case UsageThresholdIds.ALERT:
+            return _('Orange panel text and progress bars.');
+        case UsageThresholdIds.CRITICAL:
+        case UsageThresholdIds.CRITICAL_HIGH:
+            return _('Red panel text and progress bars.');
+        case UsageThresholdIds.EXHAUSTED:
+            return _('Red panel text when usage is depleted.');
+        default:
+            return _('Usage threshold notification.');
         }
     }
 }

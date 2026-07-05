@@ -8,6 +8,7 @@ PACK_SOURCES := \
 	fileSecurity.js \
 	openAIUsage.js \
 	usageState.js \
+	usageThresholds.js \
 	vendorCredentials.js \
 	vendorErrors.js \
 	vendorFormat.js \
@@ -25,7 +26,7 @@ syntax:
 	node --check extension.js
 
 schema:
-	glib-compile-schemas --strict --dry-run schemas
+	glib-compile-schemas --strict schemas
 
 test:
 	gjs -m tests/run.js

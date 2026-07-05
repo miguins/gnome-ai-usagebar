@@ -214,6 +214,22 @@ The extension stores only non-sensitive preferences in GSettings.
 | `panel-icon-style` | `vendor` | Top-bar icon style: provider logo (`vendor`), a `generic` symbolic icon, or `hidden`. |
 | `show-panel-percentage` | `true` | Whether the top-bar indicator shows the usage percentage text. |
 | `show-panel-reset` | `true` | Whether the top-bar indicator appends the reset countdown after the percentage. |
+| `color-panel-text-by-usage` | `true` | Whether top-bar text follows usage threshold colors, even when following the system theme. |
+| `warning-threshold-enabled` | `true` | Whether the warning usage threshold is active. |
+| `warning-threshold-percent` | `50` | Usage percentage for the warning threshold. |
+| `alert-threshold-enabled` | `true` | Whether the alert usage threshold is active. |
+| `alert-threshold-percent` | `80` | Usage percentage for the alert threshold. |
+| `critical-threshold-enabled` | `true` | Whether the critical usage threshold is active. |
+| `critical-threshold-percent` | `90` | Usage percentage for the critical threshold. |
+| `critical-high-threshold-enabled` | `true` | Whether the additional critical reminder threshold is active. |
+| `critical-high-threshold-percent` | `95` | Usage percentage for the additional critical reminder. |
+| `exhausted-threshold-enabled` | `true` | Whether the exhausted usage threshold is active. |
+| `exhausted-threshold-percent` | `100` | Usage percentage for the exhausted threshold. |
+
+Thresholds trigger desktop notifications. Built-in progress bar colors use the
+same thresholds when `follow-system-theme` is disabled. Top-bar text can still
+follow those colors through `color-panel-text-by-usage`, even when the rest of
+the extension follows the system theme.
 
 Use **Reset Settings** at the bottom of the preferences window to restore these
 preferences to their schema defaults. This does not delete vendor credentials or

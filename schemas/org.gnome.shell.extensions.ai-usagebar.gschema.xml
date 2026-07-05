@@ -62,6 +62,66 @@
       <summary>Show panel reset countdown</summary>
       <description>Whether the top-bar indicator appends the reset countdown after the usage percentage.</description>
     </key>
+    <key name="color-panel-text-by-usage" type="b">
+      <default>true</default>
+      <summary>Color panel text by usage</summary>
+      <description>Whether the top-bar text should use the configured usage threshold colors, overriding the system theme for panel text only.</description>
+    </key>
+    <key name="warning-threshold-enabled" type="b">
+      <default>true</default>
+      <summary>Enable warning threshold</summary>
+      <description>Whether usage warnings should be shown when a usage window reaches the warning threshold.</description>
+    </key>
+    <key name="warning-threshold-percent" type="u">
+      <default>50</default>
+      <range min="0" max="100"/>
+      <summary>Warning threshold percentage</summary>
+      <description>The usage percentage that triggers a warning notification and panel color.</description>
+    </key>
+    <key name="alert-threshold-enabled" type="b">
+      <default>true</default>
+      <summary>Enable alert threshold</summary>
+      <description>Whether usage alerts should be shown when a usage window reaches the alert threshold.</description>
+    </key>
+    <key name="alert-threshold-percent" type="u">
+      <default>80</default>
+      <range min="0" max="100"/>
+      <summary>Alert threshold percentage</summary>
+      <description>The usage percentage that triggers an alert notification and panel color.</description>
+    </key>
+    <key name="critical-threshold-enabled" type="b">
+      <default>true</default>
+      <summary>Enable critical threshold</summary>
+      <description>Whether critical usage alerts should be shown when a usage window reaches the critical threshold.</description>
+    </key>
+    <key name="critical-threshold-percent" type="u">
+      <default>90</default>
+      <range min="0" max="100"/>
+      <summary>Critical threshold percentage</summary>
+      <description>The usage percentage that triggers a critical notification and panel color.</description>
+    </key>
+    <key name="critical-high-threshold-enabled" type="b">
+      <default>true</default>
+      <summary>Enable high critical threshold</summary>
+      <description>Whether an additional critical usage alert should be shown near exhaustion.</description>
+    </key>
+    <key name="critical-high-threshold-percent" type="u">
+      <default>95</default>
+      <range min="0" max="100"/>
+      <summary>High critical threshold percentage</summary>
+      <description>The usage percentage that triggers an additional critical notification and panel color.</description>
+    </key>
+    <key name="exhausted-threshold-enabled" type="b">
+      <default>true</default>
+      <summary>Enable exhausted threshold</summary>
+      <description>Whether exhausted usage alerts should be shown when a usage window reaches the exhausted threshold.</description>
+    </key>
+    <key name="exhausted-threshold-percent" type="u">
+      <default>100</default>
+      <range min="0" max="100"/>
+      <summary>Exhausted threshold percentage</summary>
+      <description>The usage percentage that triggers an exhausted notification and panel color.</description>
+    </key>
     <key name="proxy-url" type="s">
       <default>''</default>
       <summary>Proxy URL</summary>

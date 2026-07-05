@@ -29,6 +29,15 @@ import {
 } from './vendors.js';
 import {refreshVendorUsage} from './vendorUsage.js';
 import {formatLocalTime} from './vendorFormat.js';
+import {
+    UsageThresholdDefinitions,
+    UsageThresholdIds,
+    compareUsageThresholds,
+    highestUsageThreshold,
+    metricUsageThreshold,
+    usageThresholdForPercent,
+    usageThresholdsFromSettings,
+} from './usageThresholds.js';
 
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
 const DEFAULT_DROPDOWN_OPACITY_PERCENT = 100;
@@ -90,6 +99,7 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._usageCache = new UsageCache({
             ttlSeconds: this._getRefreshIntervalSeconds(),
         });
+        this._notifiedThresholdByMetric = new Map();
         this._vendorState = Object.fromEntries(
             VendorIds.map(vendor => [vendor, this._createInitialVendorState()])
         );
@@ -431,10 +441,22 @@ class AIUsageIndicator extends PanelMenu.Button {
             'panel-icon-style',
             'show-panel-percentage',
             'show-panel-reset',
+            'color-panel-text-by-usage',
         ]) {
             this._settingsSignals.push(
                 this._settings.connect(`changed::${key}`, () => this._render())
             );
+        }
+
+        for (const definition of UsageThresholdDefinitions) {
+            for (const key of [definition.enabledKey, definition.percentKey]) {
+                this._settingsSignals.push(
+                    this._settings.connect(`changed::${key}`, () => {
+                        this._notifiedThresholdByMetric.clear();
+                        this._render();
+                    })
+                );
+            }
         }
 
         this._settingsSignals.push(
@@ -588,6 +610,7 @@ class AIUsageIndicator extends PanelMenu.Button {
             this._writeUsageCache(vendor, state);
 
         this._render();
+        this._processUsageNotifications(vendor, state);
     }
 
     _scheduleRefresh() {
@@ -700,6 +723,7 @@ class AIUsageIndicator extends PanelMenu.Button {
 
     _handleCredentialPathChanged(vendor) {
         this._vendorState[vendor] = this._createInitialVendorState();
+        this._clearVendorThresholdNotifications(vendor);
 
         try {
             this._usageCache.remove(vendor);
@@ -732,7 +756,7 @@ class AIUsageIndicator extends PanelMenu.Button {
     _render() {
         if (!this._selectedVendor) {
             this._applyPanelIcon(null);
-            this._setPanelLabelText(_('AI'));
+            this._setPanelLabelText(_('AI'), null);
             this._overviewIcon.gicon = Gio.ThemedIcon.new('utilities-system-monitor-symbolic');
             this._overviewTitle.set_text(_('No AI providers enabled'));
             this._overviewSubtitle.set_text(_('Enable Claude or Codex in preferences.'));
@@ -746,9 +770,10 @@ class AIUsageIndicator extends PanelMenu.Button {
         const label = VendorLabels[this._selectedVendor];
         const state = this._vendorState[this._selectedVendor];
         const statusLabel = this._getUsageStatusLabel(state);
+        const panelThreshold = this._getStateUsageThreshold(state);
 
         this._applyPanelIcon(this._selectedVendor);
-        this._setPanelLabelText(this._getPanelText(label, state, statusLabel));
+        this._setPanelLabelText(this._getPanelText(label, state, statusLabel), panelThreshold);
         this._overviewIcon.gicon = this._getVendorIcon(this._selectedVendor);
         this._overviewTitle.set_text(state.plan ?? label);
         this._overviewSubtitle.set_text(this._getOverviewSubtitle(label, state));
@@ -758,7 +783,13 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._footerLabel.set_text(this._getFooterText(state));
     }
 
-    _setPanelLabelText(text) {
+    _setPanelLabelText(text, threshold = null) {
+        const classes = ['ai-usagebar-panel-label'];
+        const thresholdClass = this._getPanelThresholdStyleClass(threshold);
+        if (thresholdClass)
+            classes.push(thresholdClass);
+
+        this._panelLabel.set_style_class_name(classes.join(' '));
         this._panelLabel.set_text(text);
         this._panelLabel.visible = text.length > 0;
     }
@@ -795,6 +826,29 @@ class AIUsageIndicator extends PanelMenu.Button {
         }
 
         return `${label}: ${statusLabel}`;
+    }
+
+    _getStateUsageThreshold(state) {
+        if (!state || (state.status !== UsageStatus.READY && state.status !== UsageStatus.STALE))
+            return null;
+
+        return highestUsageThreshold(state.metrics, this._getUsageThresholds());
+    }
+
+    _getPanelThresholdStyleClass(threshold) {
+        if (!this._getColorPanelTextByUsage())
+            return null;
+
+        switch (threshold?.style) {
+        case 'warning':
+            return 'ai-usagebar-panel-warning';
+        case 'alert':
+            return 'ai-usagebar-panel-alert';
+        case 'critical':
+            return 'ai-usagebar-panel-critical';
+        default:
+            return null;
+        }
     }
 
     _getOverviewSubtitle(label, state) {
@@ -1032,12 +1086,17 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _getProgressStyleClass(percent) {
-        if (percent >= 85)
-            return 'ai-usagebar-progress-critical';
-        if (percent >= 60)
+        const threshold = usageThresholdForPercent(percent, this._getUsageThresholds());
+        switch (threshold?.style) {
+        case 'warning':
             return 'ai-usagebar-progress-warning';
-
-        return 'ai-usagebar-progress-ok';
+        case 'alert':
+            return 'ai-usagebar-progress-alert';
+        case 'critical':
+            return 'ai-usagebar-progress-critical';
+        default:
+            return 'ai-usagebar-progress-ok';
+        }
     }
 
     _setMessage(text) {
@@ -1048,6 +1107,117 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         this._messageLabel.set_text(text);
         this._messageItem.show();
+    }
+
+    _processUsageNotifications(vendor, state) {
+        if (!state || state.status !== UsageStatus.READY || !Array.isArray(state.metrics))
+            return;
+
+        const thresholds = this._getUsageThresholds();
+        if (thresholds.length === 0) {
+            this._clearVendorThresholdNotifications(vendor);
+            return;
+        }
+
+        const activeMetricKeys = new Set();
+        const pendingNotifications = [];
+        for (const metric of state.metrics) {
+            if (metric.percent === null)
+                continue;
+
+            const metricKey = this._getThresholdNotificationMetricKey(vendor, metric);
+            activeMetricKeys.add(metricKey);
+
+            const threshold = metricUsageThreshold(metric, thresholds);
+            if (!threshold) {
+                this._notifiedThresholdByMetric.delete(metricKey);
+                continue;
+            }
+
+            const previousThreshold = this._notifiedThresholdByMetric.get(metricKey);
+            const shouldNotify = !previousThreshold ||
+                compareUsageThresholds(threshold, previousThreshold) > 0;
+
+            this._notifiedThresholdByMetric.set(metricKey, threshold);
+            if (shouldNotify)
+                pendingNotifications.push({metric, threshold});
+        }
+
+        this._pruneVendorThresholdNotifications(vendor, activeMetricKeys);
+
+        if (pendingNotifications.length > 0)
+            this._notifyUsageThresholds(vendor, pendingNotifications);
+    }
+
+    _notifyUsageThresholds(vendor, pendingNotifications) {
+        const vendorLabel = VendorLabels[vendor] ?? _('Vendor');
+        const notifications = [...pendingNotifications].sort(
+            (first, second) => compareUsageThresholds(second.threshold, first.threshold)
+        );
+        const {metric, threshold} = notifications[0];
+        const thresholdLabel = this._getThresholdLabel(threshold);
+        const usedPercent = `${Math.round(metric.percent)}%`;
+        const resetIn = this._getMetricResetIn(metric);
+        const title = `${vendorLabel} usage ${thresholdLabel.toLowerCase()}`;
+        const parts = notifications.length === 1
+            ? [`${metric.label} reached ${usedPercent} used.`]
+            : [
+                `${notifications.length} usage windows reached configured thresholds.`,
+                `${metric.label} is ${usedPercent} used.`,
+            ];
+
+        if (resetIn)
+            parts.push(`Resets in ${resetIn}.`);
+
+        try {
+            Main.notify(title, parts.join(' '));
+        } catch (error) {
+            // Notifications are best-effort; the indicator still shows the state.
+        }
+    }
+
+    _getThresholdNotificationMetricKey(vendor, metric) {
+        // Reset timestamps can drift between refreshes when vendors report a
+        // countdown instead of a stable reset instant. Keep suppression keyed to
+        // the usage window itself; crossing back below the threshold clears it.
+        return [
+            vendor,
+            metric.kind ?? '',
+            metric.label,
+        ].join('\n');
+    }
+
+    _clearVendorThresholdNotifications(vendor) {
+        const prefix = `${vendor}\n`;
+        for (const key of this._notifiedThresholdByMetric.keys()) {
+            if (key.startsWith(prefix))
+                this._notifiedThresholdByMetric.delete(key);
+        }
+    }
+
+    _pruneVendorThresholdNotifications(vendor, activeMetricKeys) {
+        const prefix = `${vendor}\n`;
+        for (const key of this._notifiedThresholdByMetric.keys()) {
+            if (key.startsWith(prefix) && !activeMetricKeys.has(key))
+                this._notifiedThresholdByMetric.delete(key);
+        }
+    }
+
+    _getThresholdLabel(threshold) {
+        switch (threshold?.id) {
+        case UsageThresholdIds.WARNING:
+            return _('Warning');
+        case UsageThresholdIds.ALERT:
+            return _('Alert');
+        case UsageThresholdIds.CRITICAL:
+            return _('Critical');
+        case UsageThresholdIds.CRITICAL_HIGH:
+            return _('Critical reminder');
+        case UsageThresholdIds.EXHAUSTED:
+            return _('Exhausted');
+        default:
+            return _('Alert');
+        }
     }
 
     _renderCachedSelectedVendor() {
@@ -1182,6 +1352,14 @@ class AIUsageIndicator extends PanelMenu.Button {
 
     _getShowPanelReset() {
         return this._settings.get_boolean('show-panel-reset');
+    }
+
+    _getColorPanelTextByUsage() {
+        return this._settings.get_boolean('color-panel-text-by-usage');
+    }
+
+    _getUsageThresholds() {
+        return usageThresholdsFromSettings(this._settings);
     }
 
     _formatUpdatedAt(updatedAt) {
