@@ -25,9 +25,36 @@ current GNOME Shell 45+ entry point.
 
 ## 🖼️ Screenshots
 
-![AI UsageBar dropdown showing organized usage metrics](docs/usage_bar.png)
-
-![AI UsageBar in the GNOME top bar](docs/usage_bar_desktop.png)
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/usagebar_claude.png" alt="AI UsageBar Claude usage dropdown" width="100%">
+    </td>
+    <td width="50%">
+      <img src="docs/usagebar_codex.png" alt="AI UsageBar Codex usage dropdown" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center">Claude usage</td>
+    <td align="center">Codex usage</td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/usagebar.png" alt="AI UsageBar compact top-bar indicator" width="70%">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">Compact top-bar indicator</td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <img src="docs/usagebar_desktop.png" alt="AI UsageBar in the GNOME desktop" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">Desktop view</td>
+  </tr>
+</table>
 
 ## ✅ What Works Today
 
