@@ -247,9 +247,25 @@ test('anthropic usage summary includes plan windows, model windows, and extra us
     const summary = summarizeAnthropicUsage({
         five_hour: {utilization: 42.7},
         seven_day: {utilization: 27},
-        seven_day_sonnet: {utilization: 4.2},
-        seven_day_fable: {utilization: 12.6},
+        seven_day_sonnet: null,
+        seven_day_fable: null,
         seven_day_opus: null,
+        limits: [
+            {kind: 'session', group: 'session', percent: 43},
+            {kind: 'weekly_all', group: 'weekly', percent: 27},
+            {
+                kind: 'weekly_scoped',
+                group: 'weekly',
+                percent: 4.2,
+                scope: {model: {id: null, display_name: 'Sonnet'}},
+            },
+            {
+                kind: 'weekly_scoped',
+                group: 'weekly',
+                percent: 12.6,
+                scope: {model: {id: null, display_name: 'Fable'}},
+            },
+        ],
         extra_usage: {
             is_enabled: true,
             monthly_limit: 5000,
@@ -297,13 +313,33 @@ test('anthropic usage display returns dynamic model weekly metrics', () => {
     const display = buildAnthropicUsageDisplay({
         five_hour: {utilization: 10},
         seven_day: {utilization: 20},
-        seven_day_fable: {
-            utilization: 33.3,
-            resets_at: '2026-06-05T12:00:00Z',
-        },
-        seven_day_mythos_long_context: {utilization: 44.4},
-        seven_day_metadata: {label: 'not a usage window'},
+        seven_day_fable: null,
         seven_day_opus: null,
+        limits: [
+            {kind: 'session', group: 'session', percent: 10},
+            {kind: 'weekly_all', group: 'weekly', percent: 20},
+            {
+                kind: 'weekly_scoped',
+                group: 'weekly',
+                percent: 33.3,
+                resets_at: '2026-06-05T12:00:00Z',
+                scope: {model: {id: null, display_name: 'Fable'}},
+            },
+            {
+                kind: 'weekly_scoped',
+                group: 'weekly',
+                percent: 44.4,
+                scope: {model: {id: null, display_name: 'Mythos Long Context'}},
+            },
+            {label: 'not a usage window'},
+            {
+                kind: 'weekly_scoped',
+                group: 'weekly',
+                percent: 1,
+                scope: {model: null},
+            },
+            null,
+        ],
     }, {}, {now});
 
     assertEqual(
