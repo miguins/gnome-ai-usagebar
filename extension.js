@@ -36,8 +36,6 @@ const METRIC_CONTENT_SPACING = 4;
 const METRIC_ROW_SPACING = 10;
 const PROGRESS_TRACK_WIDTH = 300;
 const RELATIVE_TIME_REFRESH_SECONDS = 60;
-const REFRESH_CONTENT_SPACING = 8;
-const ACTION_BUTTON_SPACING = 8;
 const BUILT_IN_THEME_STYLE_CLASS = 'ai-usagebar-built-in-theme';
 const FOLLOW_SYSTEM_THEME_STYLE_CLASS = 'ai-usagebar-follow-system-theme';
 const TAB_BUTTON_STYLE_CLASS = 'ai-usagebar-tab';
@@ -78,11 +76,13 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._settingsSignals = [];
         this._menuSignals = [];
         this._menuActorSignals = [];
+        this._menuButtonActions = new Map();
         this._extensionDir = this._getExtensionDir();
         this._enabledVendors = this._getEnabledVendors();
         this._selectedVendor = this._resolveSelectedVendor(this._getSelectedVendorSetting());
         this._ignoreSelectedVendorSetting = false;
         this._applyingDropdownOpacity = false;
+        this._panelWidthFrozen = false;
         this._refreshSourceId = 0;
         this._relativeTimeSourceId = 0;
         this._refreshRequestId = 0;
@@ -109,7 +109,6 @@ class AIUsageIndicator extends PanelMenu.Button {
         this._panelBox = new St.BoxLayout({
             style_class: 'ai-usagebar-panel-box',
         });
-        this._panelBox.layout_manager.spacing = 4;
         this._panelIcon = new St.Icon({
             icon_name: 'utilities-system-monitor-symbolic',
             style_class: 'system-status-icon ai-usagebar-panel-icon',
@@ -134,7 +133,6 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-tabs',
             x_expand: true,
         });
-        this._tabBox.layout_manager.spacing = 6;
 
         this._tabButtons = new Map();
         this._rebuildTabs();
@@ -153,8 +151,12 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         this._menuSignals.push(
             this.menu.connect('open-state-changed', (_menu, isOpen) => {
-                if (isOpen)
+                if (isOpen) {
+                    this._freezePanelWidth();
                     this._applyDropdownOpacity();
+                } else {
+                    this._unfreezePanelWidth();
+                }
             })
         );
         this._menuActorSignals.push(
@@ -195,7 +197,7 @@ class AIUsageIndicator extends PanelMenu.Button {
                 x_expand: true,
             });
             button.set_child(this._buildVendorLabel(vendor, 'ai-usagebar-tab-icon'));
-            button.connect('clicked', () => this._selectVendor(vendor, {refresh: true}));
+            this._registerMenuButton(button, () => this._selectVendor(vendor, {refresh: true}));
             this._tabButtons.set(vendor, button);
             this._tabBox.add_child(button);
         }
@@ -210,7 +212,6 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-overview',
             x_expand: true,
         });
-        box.layout_manager.spacing = 12;
         this._overviewIcon = new St.Icon({
             style_class: 'ai-usagebar-overview-icon',
             icon_size: 24,
@@ -292,7 +293,6 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-actions',
             x_expand: true,
         });
-        box.layout_manager.spacing = ACTION_BUTTON_SPACING;
 
         this._refreshButton = this._buildActionButton({
             iconName: 'view-refresh-symbolic',
@@ -322,6 +322,7 @@ class AIUsageIndicator extends PanelMenu.Button {
 
         const content = new St.BoxLayout({
             style_class: 'ai-usagebar-refresh-content',
+            x_align: Clutter.ActorAlign.CENTER,
             x_expand: true,
         });
         content.add_child(new St.Icon({
@@ -329,15 +330,42 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-action-icon',
             icon_size: 16,
         }));
-        content.add_child(this._buildHorizontalSpacer(REFRESH_CONTENT_SPACING));
         content.add_child(new St.Label({
             text: label,
             y_align: Clutter.ActorAlign.CENTER,
         }));
         button.set_child(content);
-        button.connect('clicked', onClick);
+        this._registerMenuButton(button, onClick);
 
         return button;
+    }
+
+    // Menu buttons need two click paths: the normal 'clicked' signal and the
+    // captured-event fallback in _handleMenuCapturedEvent, because the popup
+    // menu's grab can swallow pointer releases before St.Button sees them.
+    _registerMenuButton(button, action) {
+        this._menuButtonActions.set(button, action);
+        button.connect('clicked', action);
+        button.connect('destroy', () => this._menuButtonActions.delete(button));
+    }
+
+    _freezePanelWidth() {
+        if (this._panelWidthFrozen)
+            return;
+
+        const width = this._panelBox.get_width();
+        if (width > 0) {
+            this._panelBox.set_width(width);
+            this._panelWidthFrozen = true;
+        }
+    }
+
+    _unfreezePanelWidth() {
+        if (!this._panelWidthFrozen)
+            return;
+
+        this._panelBox.set_width(-1);
+        this._panelWidthFrozen = false;
     }
 
     _openPreferencesFromMenu() {
@@ -356,21 +384,11 @@ class AIUsageIndicator extends PanelMenu.Button {
         if (!targetActor)
             return Clutter.EVENT_PROPAGATE;
 
-        for (const [vendor, button] of this._tabButtons.entries()) {
+        for (const [button, action] of this._menuButtonActions.entries()) {
             if (button.contains(targetActor)) {
-                this._selectVendor(vendor, {refresh: true});
+                action();
                 return Clutter.EVENT_STOP;
             }
-        }
-
-        if (this._refreshButton?.contains(targetActor)) {
-            this._refreshSelectedVendor({force: true});
-            return Clutter.EVENT_STOP;
-        }
-
-        if (this._settingsButton?.contains(targetActor)) {
-            this._openPreferencesFromMenu();
-            return Clutter.EVENT_STOP;
         }
 
         return Clutter.EVENT_PROPAGATE;
@@ -481,9 +499,9 @@ class AIUsageIndicator extends PanelMenu.Button {
     _buildVendorLabel(vendor, iconStyleClass) {
         const box = new St.BoxLayout({
             style_class: 'ai-usagebar-vendor-label',
+            x_align: Clutter.ActorAlign.CENTER,
             x_expand: true,
         });
-        box.layout_manager.spacing = 12;
         box.add_child(new St.Icon({
             gicon: this._getVendorIcon(vendor),
             style_class: iconStyleClass,
@@ -867,12 +885,6 @@ class AIUsageIndicator extends PanelMenu.Button {
         });
     }
 
-    _buildHorizontalSpacer(width) {
-        return new St.Widget({
-            width,
-        });
-    }
-
     _buildMetricRow(metric) {
         const row = new St.BoxLayout({
             vertical: true,
@@ -883,7 +895,6 @@ class AIUsageIndicator extends PanelMenu.Button {
             style_class: 'ai-usagebar-metric-top',
             x_expand: true,
         });
-        top.layout_manager.spacing = 12;
         top.add_child(new St.Label({
             text: metric.label,
             style_class: 'ai-usagebar-metric-label',

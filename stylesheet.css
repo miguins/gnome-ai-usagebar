@@ -1,3 +1,7 @@
+.ai-usagebar-panel-box {
+    spacing: 4px;
+}
+
 .ai-usagebar-panel-label {
     font-weight: 700;
     min-width: 30px;
@@ -6,6 +10,7 @@
 .ai-usagebar-overview {
     min-width: 300px;
     padding: 4px 0;
+    spacing: 12px;
 }
 
 .ai-usagebar-overview-title {
@@ -27,12 +32,19 @@
 
 .ai-usagebar-tabs {
     padding: 2px 0;
+    spacing: 6px;
+}
+
+.ai-usagebar-vendor-label {
+    spacing: 8px;
 }
 
 .ai-usagebar-tab {
-    border-radius: 6px;
-    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 12px;
     text-align: center;
+    transition-duration: 150ms;
 }
 
 .ai-usagebar-tab-empty {
@@ -42,6 +54,10 @@
 
 .ai-usagebar-metrics {
     min-width: 300px;
+}
+
+.ai-usagebar-metric-top {
+    spacing: 12px;
 }
 
 .ai-usagebar-metric-label {
@@ -71,11 +87,18 @@
 
 .ai-usagebar-actions {
     min-width: 300px;
+    spacing: 8px;
+}
+
+.ai-usagebar-refresh-content {
+    spacing: 8px;
 }
 
 .ai-usagebar-refresh-button {
-    border-radius: 6px;
-    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 12px;
+    transition-duration: 150ms;
 }
 
 .ai-usagebar-built-in-theme .ai-usagebar-panel-label {
@@ -109,8 +132,31 @@
     color: rgba(255, 255, 255, 0.78);
 }
 
-.ai-usagebar-built-in-theme .ai-usagebar-tab-selected {
-    background-color: rgba(53, 132, 228, 0.28);
+.ai-usagebar-built-in-theme .ai-usagebar-tabs {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 3px;
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-tab {
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-tab:hover,
+.ai-usagebar-built-in-theme .ai-usagebar-tab:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.94);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected,
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected:hover,
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected:focus {
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(70, 145, 235, 0.42);
+    background-gradient-end: rgba(43, 112, 202, 0.42);
+    border-color: rgba(99, 162, 240, 0.42);
+    color: rgb(255, 255, 255);
+    font-weight: 700;
 }
 
 .ai-usagebar-built-in-theme .ai-usagebar-progress-track {
@@ -129,25 +175,49 @@
     background-color: rgb(255, 123, 114);
 }
 
-.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:hover,
-.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:focus {
-    background-color: rgba(255, 255, 255, 0.10);
+.ai-usagebar-built-in-theme .ai-usagebar-refresh-button {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.92);
 }
 
+.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:hover,
+.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:focus {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: rgb(255, 255, 255);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-refresh-button:active {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* rgb(53, 132, 228) declarations are fallbacks for GNOME 45/46,
+   where -st-accent-color does not exist and its declarations are dropped. */
 .ai-usagebar-follow-system-theme .ai-usagebar-status-badge {
+    background-color: rgba(53, 132, 228, 0.16);
     background-color: st-transparentize(-st-accent-color, 0.84);
+    border: 1px solid rgb(53, 132, 228);
     border: 1px solid -st-accent-color;
+    color: rgb(53, 132, 228);
     color: -st-accent-color;
 }
 
 .ai-usagebar-follow-system-theme .ai-usagebar-tab-selected {
+    background-color: rgba(53, 132, 228, 0.25);
+    background-color: st-transparentize(-st-accent-color, 0.75);
+    border-color: rgba(53, 132, 228, 0.5);
+    border-color: st-transparentize(-st-accent-color, 0.5);
     font-weight: 700;
 }
 
 .ai-usagebar-follow-system-theme .ai-usagebar-progress-track {
+    background-color: rgba(53, 132, 228, 0.16);
     background-color: st-transparentize(-st-accent-color, 0.84);
 }
 
 .ai-usagebar-follow-system-theme .ai-usagebar-progress-fill {
+    background-color: rgb(53, 132, 228);
     background-color: -st-accent-color;
 }
