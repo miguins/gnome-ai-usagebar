@@ -42,6 +42,8 @@ export function displayFromMetrics(plan, metrics) {
         .map(metric => {
             if (metric.kind === 'current-session')
                 return `${metric.value} 5h`;
+            if (metric.kind === 'model-weekly')
+                return `${metric.value} ${weeklyModelLabel(metric)}`;
             if (metric.label === 'Sonnet weekly')
                 return `${metric.value} Sonnet`;
             if (metric.label === 'Code review')
@@ -60,6 +62,13 @@ export function displayFromMetrics(plan, metrics) {
         summary: `${plan}: ${summaryMetrics}`,
         metrics: normalizedMetrics,
     };
+}
+
+function weeklyModelLabel(metric) {
+    if (typeof metric.modelLabel === 'string' && metric.modelLabel.trim().length > 0)
+        return metric.modelLabel.trim();
+
+    return metric.label.replace(/\s+weekly$/i, '');
 }
 
 export function usageWindowMetric(label, window, field, now, {

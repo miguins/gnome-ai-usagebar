@@ -35,6 +35,8 @@ current GNOME Shell 45+ entry point.
 - Dropdown tabs for enabled Claude and Codex providers.
 - Usage metrics for current and weekly usage windows when the vendor response
   provides them.
+- Claude model-specific weekly windows, such as Sonnet, Opus, or Fable, when the
+  usage API includes them.
 - Manual refresh from the dropdown.
 - Preferences button in the dropdown.
 - Scheduled background refresh.

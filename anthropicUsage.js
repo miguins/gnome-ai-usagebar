@@ -35,6 +35,7 @@ const Anthropic = Object.freeze({
     betaHeader: 'oauth-2025-04-20',
     userAgent: 'claude-cli/1.0',
 });
+const ANTHROPIC_WEEKLY_MODEL_PREFIX = 'seven_day_';
 
 export async function refreshAnthropicUsage({
     session,
@@ -148,15 +149,7 @@ export function buildAnthropicUsageDisplay(
         }),
     ];
 
-    if (payload.seven_day_sonnet) {
-        metrics.push(usageWindowMetric(
-            'Sonnet weekly',
-            payload.seven_day_sonnet,
-            'utilization',
-            timestamp,
-            {vendor: Vendors.ANTHROPIC}
-        ));
-    }
+    metrics.push(...anthropicModelWeeklyMetrics(payload, timestamp));
 
     const extra = payload.extra_usage;
     if (extra?.is_enabled) {
@@ -186,6 +179,50 @@ export function anthropicPlanLabel(oauth = {}) {
         label += ' 20x';
 
     return label;
+}
+
+function anthropicModelWeeklyMetrics(payload, timestamp) {
+    return Object.entries(payload)
+        .filter(([key, window]) =>
+            key.startsWith(ANTHROPIC_WEEKLY_MODEL_PREFIX) &&
+            isAnthropicUsageWindow(window))
+        .map(([key, window]) => {
+            const modelLabel = anthropicModelLabelFromUsageKey(key);
+            if (!modelLabel)
+                return null;
+
+            return {
+                ...usageWindowMetric(
+                    `${modelLabel} weekly`,
+                    window,
+                    'utilization',
+                    timestamp,
+                    {
+                        kind: 'model-weekly',
+                        vendor: Vendors.ANTHROPIC,
+                    }
+                ),
+                modelLabel,
+            };
+        })
+        .filter(metric => metric !== null);
+}
+
+function isAnthropicUsageWindow(window) {
+    return window &&
+        typeof window === 'object' &&
+        !Array.isArray(window) &&
+        'utilization' in window;
+}
+
+function anthropicModelLabelFromUsageKey(key) {
+    const suffix = key.slice(ANTHROPIC_WEEKLY_MODEL_PREFIX.length);
+    const parts = suffix
+        .split(/[_-]+/)
+        .filter(part => part.length > 0)
+        .map(part => capitalize(part.toLowerCase()));
+
+    return parts.length > 0 ? parts.join(' ') : null;
 }
 
 function anthropicOauthFromDocument(document) {

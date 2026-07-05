@@ -243,11 +243,13 @@ test('cache refuses unsafe directory permissions on write', () => {
     }
 });
 
-test('anthropic usage summary includes plan windows and extra usage', () => {
+test('anthropic usage summary includes plan windows, model windows, and extra usage', () => {
     const summary = summarizeAnthropicUsage({
         five_hour: {utilization: 42.7},
         seven_day: {utilization: 27},
         seven_day_sonnet: {utilization: 4.2},
+        seven_day_fable: {utilization: 12.6},
+        seven_day_opus: null,
         extra_usage: {
             is_enabled: true,
             monthly_limit: 5000,
@@ -258,7 +260,10 @@ test('anthropic usage summary includes plan windows and extra usage', () => {
         rateLimitTier: 'default_claude_max_5x',
     });
 
-    assertEqual(summary, 'Max 5x: 43% 5h, 27% weekly, 4% Sonnet, extra $2.50 / $50.00');
+    assertEqual(
+        summary,
+        'Max 5x: 43% 5h, 27% weekly, 4% Sonnet, 13% Fable, extra $2.50 / $50.00'
+    );
 });
 
 test('anthropic usage display returns structured metrics', () => {
@@ -285,6 +290,33 @@ test('anthropic usage display returns structured metrics', () => {
         display.metrics[0].detail,
         `Resets in 2h 30m (${expectedResetAtLabel(display.metrics[0].resetAt, now)})`
     );
+});
+
+test('anthropic usage display returns dynamic model weekly metrics', () => {
+    const now = GLib.DateTime.new_from_iso8601('2026-06-04T12:00:00Z', null);
+    const display = buildAnthropicUsageDisplay({
+        five_hour: {utilization: 10},
+        seven_day: {utilization: 20},
+        seven_day_fable: {
+            utilization: 33.3,
+            resets_at: '2026-06-05T12:00:00Z',
+        },
+        seven_day_mythos_long_context: {utilization: 44.4},
+        seven_day_metadata: {label: 'not a usage window'},
+        seven_day_opus: null,
+    }, {}, {now});
+
+    assertEqual(
+        display.summary,
+        'Unknown: 10% 5h, 20% weekly, 33% Fable, 44% Mythos Long Context'
+    );
+    assertEqual(display.metrics.length, 4);
+    assertEqual(display.metrics[2].kind, 'model-weekly');
+    assertEqual(display.metrics[2].label, 'Fable weekly');
+    assertEqual(display.metrics[2].value, '33%');
+    assertEqual(display.metrics[2].percent, 33);
+    assertEqual(display.metrics[2].resetIn, '1d');
+    assertEqual(display.metrics[3].label, 'Mythos Long Context weekly');
 });
 
 test('anthropic plan label handles max tier names', () => {
