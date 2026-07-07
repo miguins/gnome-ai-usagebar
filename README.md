@@ -309,25 +309,26 @@ make pack PACK_DIR=/tmp/my-extension-pack
 
 ## 🗂️ Project Layout
 
-- `extension.js`: GNOME Shell 45+ panel indicator and dropdown UI.
-- `prefs.js`: preferences window.
-- `stylesheet.css`: extension styling.
-- `vendorUsage.js`: public vendor refresh dispatcher.
-- `anthropicUsage.js` and `openAIUsage.js`: vendor-specific parsing and refresh
-  flows.
-- `vendorHttp.js`: Soup request handling and HTTP status mapping.
-- `vendorCredentials.js`: credential source lookup, validation, and write-back.
-- `credentialStore.js`: GNOME Keyring/Secret Service integration.
-- `vendorErrors.js`: shared vendor error conversion.
-- `vendorFormat.js`: shared usage metric formatting.
-- `fileSecurity.js`: owner-only permission checks and private file writes.
-- `cache.js`: normalized local usage cache.
-- `usageState.js`: shared usage state model.
-- `vendors.js`: vendor identifiers, settings keys, credential defaults, and CLI
-  detection.
-- `assets/`: provider icons.
-- `schemas/`: GSettings schema.
-- `tests/run.js`: GJS test runner.
+The repository root is kept close to the shape of an unpacked GNOME Shell
+extension. Entry points and extension metadata live at the top level, while
+shared implementation code is grouped under `lib/`.
+
+| Path | Responsibility |
+| --- | --- |
+| `extension.js` | GNOME Shell 45+ entry point for the panel indicator, dropdown UI, settings bindings, refresh scheduling, and notifications. |
+| `prefs.js` | Preferences entry point for provider configuration, display settings, proxy settings, and usage alert thresholds. |
+| `metadata.json` | GNOME Shell extension metadata, including UUID and supported Shell versions. |
+| `stylesheet.css` | Shell UI styles for the panel indicator and dropdown. |
+| `lib/` | Internal reusable modules shared by the extension and preferences entry points. |
+| `lib/vendorUsage.js`, `lib/anthropicUsage.js`, `lib/openAIUsage.js` | Vendor refresh dispatch, usage parsing, token refresh flows, and provider-specific display models. |
+| `lib/vendorHttp.js`, `lib/vendorCredentials.js`, `lib/credentialStore.js`, `lib/fileSecurity.js` | HTTP transport, credential lookup, Secret Service integration, and permission-safe file access. |
+| `lib/vendors.js`, `lib/usageState.js`, `lib/usageThresholds.js` | Vendor definitions, shared usage state, settings keys, and threshold evaluation. |
+| `lib/vendorFormat.js`, `lib/vendorErrors.js`, `lib/cache.js` | Usage formatting, error normalization, and local cache handling. |
+| `assets/` | Provider symbolic icons packaged with the extension. |
+| `schemas/` | GSettings schema source and compiled schema used by local installs. |
+| `tests/run.js` | GJS test entry point that loads all suites and runs the shared harness. |
+| `tests/harness.js` | Lightweight test registration, assertions, temporary file helpers, and shared fakes. |
+| `tests/*.test.js` | Domain-focused suites for state, cache, credentials, parsing, HTTP mapping, and mocked refresh flows. |
 
 ## 🧯 Troubleshooting
 
