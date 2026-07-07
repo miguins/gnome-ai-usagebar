@@ -32,7 +32,14 @@
 
 .ai-usagebar-tabs {
     padding: 2px 0;
+}
+
+.ai-usagebar-tab-list {
     spacing: 6px;
+}
+
+.ai-usagebar-tab-highlight {
+    border-radius: 8px;
 }
 
 .ai-usagebar-vendor-label {
@@ -163,13 +170,17 @@
     color: rgba(255, 255, 255, 0.94);
 }
 
-.ai-usagebar-built-in-theme .ai-usagebar-tab-selected,
-.ai-usagebar-built-in-theme .ai-usagebar-tab-selected:hover,
-.ai-usagebar-built-in-theme .ai-usagebar-tab-selected:focus {
+.ai-usagebar-built-in-theme .ai-usagebar-tab-highlight {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(70, 145, 235, 0.42);
     background-gradient-end: rgba(43, 112, 202, 0.42);
-    border-color: rgba(99, 162, 240, 0.42);
+    border: 1px solid rgba(99, 162, 240, 0.42);
+}
+
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected,
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected:hover,
+.ai-usagebar-built-in-theme .ai-usagebar-tab-selected:focus {
+    background-color: transparent;
     color: rgb(255, 255, 255);
     font-weight: 700;
 }
@@ -223,11 +234,30 @@
     color: -st-accent-color;
 }
 
-.ai-usagebar-follow-system-theme .ai-usagebar-tab-selected {
+/* Neutral grays keep the segmented tab group legible on both light
+   and dark shell themes. */
+.ai-usagebar-follow-system-theme .ai-usagebar-tabs {
+    background-color: rgba(127, 127, 127, 0.14);
+    border-radius: 12px;
+    padding: 3px;
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-tab:hover,
+.ai-usagebar-follow-system-theme .ai-usagebar-tab:focus {
+    background-color: rgba(127, 127, 127, 0.18);
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-tab-highlight {
     background-color: rgba(53, 132, 228, 0.25);
     background-color: st-transparentize(-st-accent-color, 0.75);
-    border-color: rgba(53, 132, 228, 0.5);
-    border-color: st-transparentize(-st-accent-color, 0.5);
+    border: 1px solid rgba(53, 132, 228, 0.5);
+    border: 1px solid st-transparentize(-st-accent-color, 0.5);
+}
+
+.ai-usagebar-follow-system-theme .ai-usagebar-tab-selected,
+.ai-usagebar-follow-system-theme .ai-usagebar-tab-selected:hover,
+.ai-usagebar-follow-system-theme .ai-usagebar-tab-selected:focus {
+    background-color: transparent;
     font-weight: 700;
 }
 

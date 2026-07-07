@@ -271,7 +271,7 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
         }));
         group.add(this._buildSwitchRow(settings, 'color-panel-text-by-usage', {
             title: _('Color Panel Text By Usage'),
-            subtitle: _('Use threshold colors for top-bar text, even when following the system theme.'),
+            subtitle: _('Use threshold colors for current session usage, even when following the system theme.'),
         }));
 
         return group;
@@ -280,7 +280,7 @@ export default class AIUsageBarPreferences extends ExtensionPreferences {
     _buildUsageAlertsGroup(settings) {
         const group = new Adw.PreferencesGroup({
             title: _('Usage Alerts'),
-            description: _('Notify and color the panel when a usage window reaches a configured threshold.'),
+            description: _('Notify when a usage window reaches a configured threshold. The top-bar color follows current session usage.'),
         });
 
         for (const definition of UsageThresholdDefinitions)

@@ -99,6 +99,22 @@ export function createCacheErrorState(summary = null, updatedAt = null) {
     });
 }
 
+export function getPrimaryUsageMetric(metrics) {
+    if (!Array.isArray(metrics))
+        return null;
+
+    return getCurrentSessionUsageMetric(metrics) ??
+        metrics.find(metric => metric?.percent !== null && metric?.percent !== undefined) ??
+        null;
+}
+
+export function getCurrentSessionUsageMetric(metrics) {
+    if (!Array.isArray(metrics))
+        return null;
+
+    return metrics.find(metric => metric?.kind === 'current-session') ?? null;
+}
+
 export function usageStateToJson(state) {
     if (!state || typeof state !== 'object')
         throw new Error('Usage state must be an object');

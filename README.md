@@ -255,8 +255,10 @@ The extension stores only non-sensitive preferences in GSettings.
 
 Thresholds trigger desktop notifications. Built-in progress bar colors use the
 same thresholds when `follow-system-theme` is disabled. Top-bar text can still
-follow those colors through `color-panel-text-by-usage`, even when the rest of
-the extension follows the system theme.
+follow those colors for current session usage through
+`color-panel-text-by-usage`, even when the rest of the extension follows the
+system theme. Weekly, model-specific, and code-review limits can trigger
+notifications and dropdown colors, but they do not color the top-bar text.
 
 Use **Reset Settings** at the bottom of the preferences window to restore these
 preferences to their schema defaults. This does not delete vendor credentials or

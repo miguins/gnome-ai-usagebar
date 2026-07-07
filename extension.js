@@ -16,6 +16,8 @@ import {
     createCacheErrorState,
     createNotConfiguredState,
     createUsageState,
+    getCurrentSessionUsageMetric,
+    getPrimaryUsageMetric,
 } from './usageState.js';
 import {
     Vendors,
@@ -33,7 +35,6 @@ import {
     UsageThresholdDefinitions,
     UsageThresholdIds,
     compareUsageThresholds,
-    highestUsageThreshold,
     metricUsageThreshold,
     usageThresholdForPercent,
     usageThresholdsFromSettings,
@@ -49,9 +50,7 @@ const BUILT_IN_THEME_STYLE_CLASS = 'ai-usagebar-built-in-theme';
 const FOLLOW_SYSTEM_THEME_STYLE_CLASS = 'ai-usagebar-follow-system-theme';
 const TAB_BUTTON_STYLE_CLASS = 'ai-usagebar-tab';
 const TAB_BUTTON_SELECTED_STYLE_CLASS = `${TAB_BUTTON_STYLE_CLASS} ai-usagebar-tab-selected`;
-const THEMED_TAB_BUTTON_STYLE_CLASS = `button ${TAB_BUTTON_STYLE_CLASS}`;
-const THEMED_TAB_BUTTON_SELECTED_STYLE_CLASS =
-    `${THEMED_TAB_BUTTON_STYLE_CLASS} ai-usagebar-tab-selected`;
+const TAB_HIGHLIGHT_ANIMATION_MS = 200;
 const REFRESH_BUTTON_STYLE_CLASS = 'ai-usagebar-refresh-button';
 const THEMED_REFRESH_BUTTON_STYLE_CLASS = `button ${REFRESH_BUTTON_STYLE_CLASS}`;
 const RESET_MONTH_NAMES = Object.freeze([
@@ -139,15 +138,33 @@ class AIUsageIndicator extends PanelMenu.Button {
             reactive: false,
             can_focus: false,
         });
-        this._tabBox = new St.BoxLayout({
+        this._tabContainer = new St.Widget({
             style_class: 'ai-usagebar-tabs',
+            layout_manager: new Clutter.BinLayout(),
             x_expand: true,
         });
+        // BinLayout only honours x_align when the child expands; without
+        // x_expand it centers the child and ignores the alignment.
+        this._tabHighlight = new St.Widget({
+            style_class: 'ai-usagebar-tab-highlight',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.START,
+            y_expand: true,
+            visible: false,
+        });
+        this._tabBox = new St.BoxLayout({
+            style_class: 'ai-usagebar-tab-list',
+            x_expand: true,
+        });
+        this._tabContainer.add_child(this._tabHighlight);
+        this._tabContainer.add_child(this._tabBox);
 
+        this._tabHighlightSyncId = 0;
+        this._pendingTabHighlightAnimation = false;
         this._tabButtons = new Map();
         this._rebuildTabs();
 
-        tabItem.add_child(this._tabBox);
+        tabItem.add_child(this._tabContainer);
         this.menu.addMenuItem(tabItem);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
@@ -195,6 +212,7 @@ class AIUsageIndicator extends PanelMenu.Button {
                 style_class: 'ai-usagebar-tab-empty',
                 x_expand: true,
             }));
+            this._queueTabHighlightSync();
             return;
         }
 
@@ -208,8 +226,67 @@ class AIUsageIndicator extends PanelMenu.Button {
             });
             button.set_child(this._buildVendorLabel(vendor, 'ai-usagebar-tab-icon'));
             this._registerMenuButton(button, () => this._selectVendor(vendor, {refresh: true}));
+            button.connect('notify::allocation', () => {
+                if (this._selectedVendor === vendor) {
+                    this._queueTabHighlightSync({
+                        animate: this._tabHighlight.get_transition('translation-x') !== null,
+                    });
+                }
+            });
             this._tabButtons.set(vendor, button);
             this._tabBox.add_child(button);
+        }
+
+        this._queueTabHighlightSync();
+    }
+
+    _queueTabHighlightSync({animate = false} = {}) {
+        this._pendingTabHighlightAnimation ||= animate;
+
+        if (this._tabHighlightSyncId)
+            return;
+
+        this._tabHighlightSyncId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._tabHighlightSyncId = 0;
+            const animate = this._pendingTabHighlightAnimation;
+            this._pendingTabHighlightAnimation = false;
+            this._updateTabHighlight(animate);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _updateTabHighlight(animate) {
+        const button = this._selectedVendor
+            ? this._tabButtons.get(this._selectedVendor)
+            : null;
+
+        if (!button || !button.has_allocation()) {
+            this._tabHighlight.remove_all_transitions();
+            this._tabHighlight.hide();
+            return;
+        }
+
+        const allocation = button.get_allocation_box();
+        const x = allocation.x1;
+        const width = allocation.x2 - allocation.x1;
+        const canAnimate = animate &&
+            this._tabHighlight.visible &&
+            this._tabHighlight.mapped &&
+            St.Settings.get().enable_animations;
+
+        this._tabHighlight.show();
+        this._tabHighlight.remove_all_transitions();
+
+        if (canAnimate) {
+            this._tabHighlight.ease({
+                translation_x: x,
+                width,
+                duration: TAB_HIGHLIGHT_ANIMATION_MS,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        } else {
+            this._tabHighlight.translation_x = x;
+            this._tabHighlight.set_width(width);
         }
     }
 
@@ -512,6 +589,7 @@ class AIUsageIndicator extends PanelMenu.Button {
             button.set_style_class_name(this._getTabButtonStyleClass(tabVendor === vendor));
         }
 
+        this._queueTabHighlightSync({animate: true});
         this._render();
 
         if (refresh)
@@ -671,11 +749,6 @@ class AIUsageIndicator extends PanelMenu.Button {
             followSystemTheme
         );
 
-        for (const [vendor, button] of this._tabButtons.entries())
-            button.set_style_class_name(
-                this._getTabButtonStyleClass(vendor === this._selectedVendor)
-            );
-
         if (this._refreshButton)
             this._refreshButton.set_style_class_name(this._getRefreshButtonStyleClass());
         if (this._settingsButton)
@@ -692,11 +765,6 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _getTabButtonStyleClass(selected) {
-        if (this._getFollowSystemTheme())
-            return selected
-                ? THEMED_TAB_BUTTON_SELECTED_STYLE_CLASS
-                : THEMED_TAB_BUTTON_STYLE_CLASS;
-
         return selected ? TAB_BUTTON_SELECTED_STYLE_CLASS : TAB_BUTTON_STYLE_CLASS;
     }
 
@@ -808,8 +876,7 @@ class AIUsageIndicator extends PanelMenu.Button {
     }
 
     _getPanelText(label, state, statusLabel) {
-        const primaryMetric = state.metrics?.find(metric => metric.kind === 'current-session') ??
-            state.metrics?.find(metric => metric.percent !== null);
+        const primaryMetric = this._getPanelMetric(state);
         if ((state.status === UsageStatus.READY || state.status === UsageStatus.STALE) &&
             primaryMetric) {
             const parts = [];
@@ -828,11 +895,18 @@ class AIUsageIndicator extends PanelMenu.Button {
         return `${label}: ${statusLabel}`;
     }
 
+    _getPanelMetric(state) {
+        return getPrimaryUsageMetric(state?.metrics);
+    }
+
     _getStateUsageThreshold(state) {
         if (!state || (state.status !== UsageStatus.READY && state.status !== UsageStatus.STALE))
             return null;
 
-        return highestUsageThreshold(state.metrics, this._getUsageThresholds());
+        return metricUsageThreshold(
+            getCurrentSessionUsageMetric(state.metrics),
+            this._getUsageThresholds()
+        );
     }
 
     _getPanelThresholdStyleClass(threshold) {
@@ -1393,6 +1467,11 @@ class AIUsageIndicator extends PanelMenu.Button {
         if (this._relativeTimeSourceId) {
             GLib.source_remove(this._relativeTimeSourceId);
             this._relativeTimeSourceId = 0;
+        }
+
+        if (this._tabHighlightSyncId) {
+            GLib.source_remove(this._tabHighlightSyncId);
+            this._tabHighlightSyncId = 0;
         }
 
         super.destroy();

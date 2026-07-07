@@ -6,6 +6,8 @@ import {
     UsageSources,
     UsageStatus,
     createUsageState,
+    getCurrentSessionUsageMetric,
+    getPrimaryUsageMetric,
     usageStateFromJson,
     usageStateToJson,
 } from '../usageState.js';
@@ -136,6 +138,50 @@ test('usage thresholds choose the highest metric severity', () => {
     ], thresholds);
 
     assertEqual(selected.id, UsageThresholdIds.CRITICAL);
+});
+
+test('primary usage metric prefers the current session over higher Claude weekly usage', () => {
+    const thresholds = UsageThresholdDefinitions.map(definition => ({
+        ...definition,
+        enabled: true,
+        percent: definition.defaultPercent,
+    }));
+    const metrics = [
+        {label: 'Weekly', percent: 91},
+        {kind: 'current-session', label: 'Current session (5h)', percent: 0},
+        {kind: 'model-weekly', label: 'Fable weekly', percent: 96},
+    ];
+    const primary = getPrimaryUsageMetric(metrics);
+    const currentSession = getCurrentSessionUsageMetric(metrics);
+
+    assertEqual(primary.label, 'Current session (5h)');
+    assertEqual(currentSession.label, 'Current session (5h)');
+    assertEqual(usageThresholdForPercent(currentSession.percent, thresholds), null);
+    assertEqual(
+        highestUsageThreshold(metrics, thresholds).id,
+        UsageThresholdIds.CRITICAL_HIGH
+    );
+});
+
+test('current session metric ignores higher Codex weekly and code review usage', () => {
+    const thresholds = UsageThresholdDefinitions.map(definition => ({
+        ...definition,
+        enabled: true,
+        percent: definition.defaultPercent,
+    }));
+    const metrics = [
+        {kind: 'current-session', label: 'Current session (5h)', percent: 0},
+        {label: 'Weekly', percent: 94},
+        {label: 'Code review', percent: 100},
+    ];
+    const currentSession = getCurrentSessionUsageMetric(metrics);
+
+    assertEqual(currentSession.label, 'Current session (5h)');
+    assertEqual(usageThresholdForPercent(currentSession.percent, thresholds), null);
+    assertEqual(
+        highestUsageThreshold(metrics, thresholds).id,
+        UsageThresholdIds.EXHAUSTED
+    );
 });
 
 test('cache writes owner-only files and reads fresh entries', () => {
