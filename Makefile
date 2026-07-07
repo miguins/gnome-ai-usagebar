@@ -2,21 +2,8 @@ PACK_DIR ?= /tmp/gnome-ai-usagebar-pack
 PACK_SCHEMA := schemas/org.gnome.shell.extensions.ai-usagebar.gschema.xml
 PACK_SOURCES := \
 	LICENSE \
-	anthropicUsage.js \
-	cache.js \
-	credentialStore.js \
-	fileSecurity.js \
-	openAIUsage.js \
-	usageState.js \
-	usageThresholds.js \
-	vendorCredentials.js \
-	vendorErrors.js \
-	vendorFormat.js \
-	vendorHttp.js \
-	vendorUsage.js \
-	vendors.js \
-	assets/claude-symbolic.svg \
-	assets/codex-symbolic.svg
+	lib \
+	assets
 
 .PHONY: check clean pack schema syntax test
 

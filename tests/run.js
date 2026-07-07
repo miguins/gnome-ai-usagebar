@@ -10,22 +10,22 @@ import {
     getPrimaryUsageMetric,
     usageStateFromJson,
     usageStateToJson,
-} from '../usageState.js';
-import {CacheReadStatus, UsageCache} from '../cache.js';
+} from '../lib/usageState.js';
+import {CacheReadStatus, UsageCache} from '../lib/cache.js';
 import {
     SecretCredentialErrorReason,
     SecretCredentialStore,
     secretCredentialAttributes,
-} from '../credentialStore.js';
+} from '../lib/credentialStore.js';
 import {
     credentialPath,
     expandCredentialPath,
-} from '../vendorCredentials.js';
+} from '../lib/vendorCredentials.js';
 import {
     Vendors,
     getDefaultCredentialPath,
     normalizeCredentialPathSetting,
-} from '../vendors.js';
+} from '../lib/vendors.js';
 import {
     anthropicPlanLabel,
     buildAnthropicUsageDisplay,
@@ -35,19 +35,19 @@ import {
     refreshVendorUsage,
     summarizeAnthropicUsage,
     summarizeOpenAIUsage,
-} from '../vendorUsage.js';
+} from '../lib/vendorUsage.js';
 import {
     createHttpSession,
     httpStatusError,
     resolveProxyUrl,
-} from '../vendorHttp.js';
-import {formatLocalTime} from '../vendorFormat.js';
+} from '../lib/vendorHttp.js';
+import {formatLocalTime} from '../lib/vendorFormat.js';
 import {
     UsageThresholdDefinitions,
     UsageThresholdIds,
     highestUsageThreshold,
     usageThresholdForPercent,
-} from '../usageThresholds.js';
+} from '../lib/usageThresholds.js';
 
 const tests = [];
 

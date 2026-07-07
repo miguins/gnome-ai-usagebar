@@ -15,11 +15,11 @@ import {
     isVendorEnabled,
     isVendor,
     normalizeCredentialPathSetting,
-} from './vendors.js';
+} from './lib/vendors.js';
 import {
     UsageThresholdDefinitions,
     UsageThresholdIds,
-} from './usageThresholds.js';
+} from './lib/usageThresholds.js';
 
 const REFRESH_INTERVAL_MIN_SECONDS = 60;
 const REFRESH_INTERVAL_MAX_SECONDS = 3600;

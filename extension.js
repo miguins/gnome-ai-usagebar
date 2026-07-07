@@ -9,7 +9,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import {CacheReadStatus, UsageCache} from './cache.js';
+import {CacheReadStatus, UsageCache} from './lib/cache.js';
 import {
     UsageSources,
     UsageStatus,
@@ -18,7 +18,7 @@ import {
     createUsageState,
     getCurrentSessionUsageMetric,
     getPrimaryUsageMetric,
-} from './usageState.js';
+} from './lib/usageState.js';
 import {
     Vendors,
     VendorIds,
@@ -28,9 +28,9 @@ import {
     getEnabledVendors,
     isVendor,
     normalizeCredentialPathSettings,
-} from './vendors.js';
-import {refreshVendorUsage} from './vendorUsage.js';
-import {formatLocalTime} from './vendorFormat.js';
+} from './lib/vendors.js';
+import {refreshVendorUsage} from './lib/vendorUsage.js';
+import {formatLocalTime} from './lib/vendorFormat.js';
 import {
     UsageThresholdDefinitions,
     UsageThresholdIds,
@@ -38,7 +38,7 @@ import {
     metricUsageThreshold,
     usageThresholdForPercent,
     usageThresholdsFromSettings,
-} from './usageThresholds.js';
+} from './lib/usageThresholds.js';
 
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
 const DEFAULT_DROPDOWN_OPACITY_PERCENT = 100;

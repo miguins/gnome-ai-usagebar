@@ -64,13 +64,13 @@ it is introduced.
   that can be reused across shell-version entry points.
 - Keep the GNOME Shell entry point focused on UI and lifecycle behavior.
 - Keep vendor logic split by responsibility:
-  - `vendorUsage.js` dispatches refreshes and preserves public exports.
-  - `anthropicUsage.js` and `openAIUsage.js` hold vendor-specific parsing and
+  - `lib/vendorUsage.js` dispatches refreshes and preserves public exports.
+  - `lib/anthropicUsage.js` and `lib/openAIUsage.js` hold vendor-specific parsing and
     refresh flows.
-  - `vendorHttp.js` owns Soup request handling and HTTP status mapping.
-  - `vendorCredentials.js` owns credential lookup, validation, and write-back.
-  - `vendorFormat.js` owns shared usage metric formatting.
-  - `fileSecurity.js` owns owner-only permission checks and private file writes.
+  - `lib/vendorHttp.js` owns Soup request handling and HTTP status mapping.
+  - `lib/vendorCredentials.js` owns credential lookup, validation, and write-back.
+  - `lib/vendorFormat.js` owns shared usage metric formatting.
+  - `lib/fileSecurity.js` owns owner-only permission checks and private file writes.
 - Do not require the upstream Rust `ai-usagebar` binary at runtime.
 - MVP vendors are Anthropic Claude and OpenAI Codex/ChatGPT only.
 - Use one compact panel indicator with vendor tabs in the dropdown.
