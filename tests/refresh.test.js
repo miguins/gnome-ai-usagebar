@@ -73,13 +73,14 @@ testAsync('refresh loads openai usage from configured credential path', async ()
             requestJson: async () => ({
                 rate_limit: {
                     primary_window: {used_percent: 2},
-                    secondary_window: {used_percent: 11},
+                    secondary_window: null,
                 },
             }),
         });
 
         assertEqual(state.status, UsageStatus.READY);
         assertEqual(state.plan, 'ChatGPT Unknown');
+        assertEqual(state.summary, 'ChatGPT Unknown: 2% 5h');
         assertEqual(lookupCount, 0);
     } finally {
         removeTree(credentialDir);

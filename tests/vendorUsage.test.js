@@ -223,12 +223,40 @@ test('openai plan hint is decoded from id token', () => {
     assertEqual(openAIPlanHintFromToken(token), 'team');
 });
 
-test('openai usage display rejects missing required windows', () => {
+test('openai usage display accepts a null secondary window', () => {
+    const display = buildOpenAIUsageDisplay({
+        plan_type: 'plus',
+        rate_limit: {
+            primary_window: {used_percent: 10},
+            secondary_window: null,
+        },
+    });
+
+    assertEqual(display.summary, 'ChatGPT Plus: 10% 5h');
+    assertEqual(display.metrics.length, 1);
+    assertEqual(display.metrics[0].kind, 'current-session');
+});
+
+test('openai usage display accepts a missing primary window', () => {
+    const display = buildOpenAIUsageDisplay({
+        plan_type: 'plus',
+        rate_limit: {
+            secondary_window: {used_percent: 20},
+        },
+    });
+
+    assertEqual(display.summary, 'ChatGPT Plus: 20% weekly');
+    assertEqual(display.metrics.length, 1);
+    assertEqual(display.metrics[0].label, 'Weekly');
+});
+
+test('openai usage display rejects malformed available windows', () => {
     assertThrows(
         () => buildOpenAIUsageDisplay({
             plan_type: 'plus',
             rate_limit: {
                 primary_window: {used_percent: 10},
+                secondary_window: 'invalid',
             },
         }),
         'Codex returned usage data in an unexpected shape'
