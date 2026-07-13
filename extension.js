@@ -181,6 +181,8 @@ class AIUsageIndicator extends PanelMenu.Button {
                 if (isOpen) {
                     this._freezePanelWidth();
                     this._applyDropdownOpacity();
+                    this._syncTabButtonSelection();
+                    this._queueTabHighlightSync();
                 } else {
                     this._unfreezePanelWidth();
                 }
@@ -585,15 +587,20 @@ class AIUsageIndicator extends PanelMenu.Button {
             }
         }
 
-        for (const [tabVendor, button] of this._tabButtons.entries()) {
-            button.set_style_class_name(this._getTabButtonStyleClass(tabVendor === vendor));
-        }
+        this._syncTabButtonSelection();
 
         this._queueTabHighlightSync({animate: true});
         this._render();
 
         if (refresh)
             this._refreshSelectedVendor();
+    }
+
+    _syncTabButtonSelection() {
+        for (const [tabVendor, button] of this._tabButtons.entries())
+            button.set_style_class_name(this._getTabButtonStyleClass(
+                tabVendor === this._selectedVendor
+            ));
     }
 
     _buildVendorLabel(vendor, iconStyleClass) {
